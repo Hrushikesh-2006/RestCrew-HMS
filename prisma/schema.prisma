@@ -1,0 +1,153 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Hostel Owner/Admin
+model Owner {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String
+  name          String
+  hostelName    String
+  hostelAddress String
+  phone         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  rooms         Room[]
+  students      Student[]
+  meals         Meal[]
+  complaints    Complaint[]
+  fees          Fee[]
+  expenses      Expense[]
+  investments   Investment[]
+}
+
+// Student/Hosteler
+model Student {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  password       String
+  name           String
+  phone          String?
+  college        String?
+  parentContact  String?
+  address        String?
+  roomId         String?
+  room           Room?    @relation(fields: [roomId], references: [id])
+  owner          Owner    @relation(fields: [ownerId], references: [id])
+  ownerId        String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  mealParticipations MealParticipation[]
+  complaints     Complaint[]
+  fees           Fee[]
+}
+
+// Room
+model Room {
+  id           String   @id @default(cuid())
+  roomNumber   String   @unique
+  floor        Int
+  capacity     Int      // 3, 4, or 5 sharing
+  amenities    String?  // JSON string of amenities
+  owner        Owner    @relation(fields: [ownerId], references: [id])
+  ownerId      String
+  students     Student[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// Meal Planning
+model Meal {
+  id           String   @id @default(cuid())
+  date         DateTime
+  type         String   // breakfast, lunch, dinner
+  menu         String   // JSON string of menu items
+  timing       String
+  owner        Owner    @relation(fields: [ownerId], references: [id])
+  ownerId      String
+  participations MealParticipation[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@unique([date, type, ownerId])
+}
+
+// Meal Participation
+model MealParticipation {
+  id         String   @id @default(cuid())
+  student    Student  @relation(fields: [studentId], references: [id])
+  studentId  String
+  meal       Meal     @relation(fields: [mealId], references: [id])
+  mealId     String
+  willAttend Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  @@unique([studentId, mealId])
+}
+
+// Complaint
+model Complaint {
+  id          String   @id @default(cuid())
+  category    String   // Food, Electricity, Washing Machine, WiFi, Cleaning, Water, Room Issues, Other
+  title       String
+  description String
+  status      String   @default("Open") // Open, Pending, Resolved
+  notes       String?  // Resolution notes
+  student     Student  @relation(fields: [studentId], references: [id])
+  studentId   String
+  owner       Owner    @relation(fields: [ownerId], references: [id])
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Fee
+model Fee {
+  id           String   @id @default(cuid())
+  amount       Float
+  dueDate      DateTime
+  status       String   @default("Pending") // Paid, Pending, Overdue
+  paidDate     DateTime?
+  month        String   // e.g., "January 2024"
+  student      Student  @relation(fields: [studentId], references: [id])
+  studentId    String
+  owner        Owner    @relation(fields: [ownerId], references: [id])
+  ownerId      String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// Expense (for analytics)
+model Expense {
+  id          String   @id @default(cuid())
+  category    String   // Electricity, Water, Food, Maintenance, Staff, Other
+  description String
+  amount      Float
+  date        DateTime
+  owner       Owner    @relation(fields: [ownerId], references: [id])
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Investment (for analytics)
+model Investment {
+  id          String   @id @default(cuid())
+  description String
+  amount      Float
+  date        DateTime
+  owner       Owner    @relation(fields: [ownerId], references: [id])
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
