@@ -1,14 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Users, Plus, Edit2, Trash2, Search, Phone, Mail, 
-  MapPin, School, User, DoorOpen, Download
-} from 'lucide-react';
+import { Users, Plus, Edit2, Trash2, Search, Phone, Mail, User, Download, Link2, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth-store';
-import { useDataStore, StudentData } from '@/lib/data-store';
+import { requestJson } from '@/lib/api-client';
 import { OwnerLayout } from '@/components/owner/owner-sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,28 +13,44 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+
+type OwnerStudent = {
+  id: string;
+  email: string;
+  password: string;
+  name: string;
+  phone: string;
+  college: string;
+  parentContact: string;
+  address: string;
+  roomId: string | null;
+  roomNumber?: string;
+  ownerId: string;
+};
+
+const emptyForm = {
+  name: '',
+  email: '',
+  password: '',
+  phone: '',
+  college: '',
+  parentContact: '',
+  address: '',
+};
 
 export default function OwnerStudentsPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { owner, isAuthenticated, userType } = useAuthStore();
-  const { students, rooms, addStudent, updateStudent, deleteStudent, updateRoom } = useDataStore();
-  
+
+  const [students, setStudents] = useState<OwnerStudent[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingStudent, setEditingStudent] = useState<StudentData | null>(null);
-  
-  // Form state
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [phone, setPhone] = useState('');
-  const [college, setCollege] = useState('');
-  const [parentContact, setParentContact] = useState('');
-  const [address, setAddress] = useState('');
-  const [selectedRoomId, setSelectedRoomId] = useState<string>('');
+  const [editingStudent, setEditingStudent] = useState<OwnerStudent | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
     if (!isAuthenticated || userType !== 'owner') {
@@ -45,142 +58,124 @@ export default function OwnerStudentsPage() {
     }
   }, [isAuthenticated, userType, router]);
 
-  if (!owner) return null;
+  useEffect(() => {
+    if (!owner?.id) return;
 
-  const availableRooms = rooms.filter(room => room.occupants.length < room.capacity);
+    const loadStudents = async () => {
+      setIsLoading(true);
+      try {
+        const response = await requestJson<{ students: OwnerStudent[] }>(`/api/owners/${owner.id}/students`);
+        setStudents(response.students);
+      } catch (error) {
+        toast({
+          title: 'Load Failed',
+          description: error instanceof Error ? error.message : 'Unable to load students.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const filteredStudents = students.filter(student =>
-    student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    student.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    student.college?.toLowerCase().includes(searchQuery.toLowerCase())
+    loadStudents();
+  }, [owner?.id, toast]);
+
+  const filteredStudents = useMemo(
+    () =>
+      students.filter((student) =>
+        [student.name, student.email, student.college]
+          .join(' ')
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase())
+      ),
+    [searchQuery, students]
   );
 
-  const getRoomByStudent = (roomId: string | null) => {
-    if (!roomId) return null;
-    return rooms.find(r => r.id === roomId);
+  if (!owner) return null;
+
+  const resetForm = () => {
+    setEditingStudent(null);
+    setForm(emptyForm);
+  };
+
+  const handleEdit = (student: OwnerStudent) => {
+    setEditingStudent(student);
+    setForm({
+      name: student.name,
+      email: student.email,
+      password: '',
+      phone: student.phone,
+      college: student.college,
+      parentContact: student.parentContact,
+      address: student.address,
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = async (student: OwnerStudent) => {
+    try {
+      await requestJson(`/api/owners/${owner.id}/students/${student.id}`, {
+        method: 'DELETE',
+      });
+      setStudents((current) => current.filter((item) => item.id !== student.id));
+      toast({
+        title: 'Student Removed',
+        description: `${student.name} has been removed from ${owner.hostelName}.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Delete Failed',
+        description: error instanceof Error ? error.message : 'Unable to remove student.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const studentData = {
-      name,
-      email,
-      password: password || 'student123',
-      phone,
-      college,
-      parentContact,
-      address,
-      roomId: selectedRoomId || null,
-      ownerEmail: owner.email,
-    };
+    setIsSubmitting(true);
 
-    if (editingStudent) {
-      // Update room assignments
-      if (editingStudent.roomId !== selectedRoomId) {
-        // Remove from old room
-        if (editingStudent.roomId) {
-          const oldRoom = rooms.find(r => r.id === editingStudent.roomId);
-          if (oldRoom) {
-            updateRoom(oldRoom.id, {
-              occupants: oldRoom.occupants.filter(id => id !== editingStudent.id)
-            });
+    try {
+      if (editingStudent) {
+        const response = await requestJson<{ student: OwnerStudent }>(
+          `/api/owners/${owner.id}/students/${editingStudent.id}`,
+          {
+            method: 'PATCH',
+            body: JSON.stringify(form),
           }
-        }
-        // Add to new room
-        if (selectedRoomId) {
-          const newRoom = rooms.find(r => r.id === selectedRoomId);
-          if (newRoom && newRoom.occupants.length < newRoom.capacity) {
-            updateRoom(newRoom.id, {
-              occupants: [...newRoom.occupants, editingStudent.id]
-            });
-          }
-        }
-      }
-      
-      updateStudent(editingStudent.id, studentData);
-      toast({
-        title: 'Student Updated',
-        description: `${name}'s record has been updated.`,
-      });
-    } else {
-      // Check if email exists
-      if (students.find(s => s.email === email)) {
+        );
+
+        setStudents((current) =>
+          current.map((student) => (student.id === editingStudent.id ? response.student : student))
+        );
         toast({
-          title: 'Error',
-          description: 'A student with this email already exists.',
-          variant: 'destructive',
+          title: 'Student Updated',
+          description: `${response.student.name} remains linked to ${owner.hostelName}.`,
         });
-        return;
+      } else {
+        const response = await requestJson<{ student: OwnerStudent }>(`/api/owners/${owner.id}/students`, {
+          method: 'POST',
+          body: JSON.stringify(form),
+        });
+
+        setStudents((current) => [response.student, ...current]);
+        toast({
+          title: 'Student Added',
+          description: `${response.student.name} can now sign in with these credentials.`,
+        });
       }
 
-      const newStudentId = `student_${Date.now()}`;
-      addStudent({
-        id: newStudentId,
-        ...studentData,
-      });
-      
-      // Add to room
-      if (selectedRoomId) {
-        const room = rooms.find(r => r.id === selectedRoomId);
-        if (room && room.occupants.length < room.capacity) {
-          updateRoom(room.id, {
-            occupants: [...room.occupants, newStudentId]
-          });
-        }
-      }
-      
+      resetForm();
+      setIsDialogOpen(false);
+    } catch (error) {
       toast({
-        title: 'Student Added',
-        description: `${name} has been added successfully.`,
+        title: editingStudent ? 'Update Failed' : 'Add Failed',
+        description: error instanceof Error ? error.message : 'Unable to save student.',
+        variant: 'destructive',
       });
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    resetForm();
-    setIsDialogOpen(false);
-  };
-
-  const handleEdit = (student: StudentData) => {
-    setEditingStudent(student);
-    setName(student.name);
-    setEmail(student.email);
-    setPassword('');
-    setPhone(student.phone);
-    setCollege(student.college || '');
-    setParentContact(student.parentContact || '');
-    setAddress(student.address || '');
-    setSelectedRoomId(student.roomId || '');
-    setIsDialogOpen(true);
-  };
-
-  const handleDelete = (student: StudentData) => {
-    // Remove from room
-    if (student.roomId) {
-      const room = rooms.find(r => r.id === student.roomId);
-      if (room) {
-        updateRoom(room.id, {
-          occupants: room.occupants.filter(id => id !== student.id)
-        });
-      }
-    }
-    
-    deleteStudent(student.id);
-    toast({
-      title: 'Student Removed',
-      description: `${student.name} has been removed from the hostel.`,
-    });
-  };
-
-  const resetForm = () => {
-    setEditingStudent(null);
-    setName('');
-    setEmail('');
-    setPassword('');
-    setPhone('');
-    setCollege('');
-    setParentContact('');
-    setAddress('');
-    setSelectedRoomId('');
   };
 
   const exportData = () => {
@@ -192,344 +187,315 @@ export default function OwnerStudentsPage() {
       });
       return;
     }
-    
+
     const csvContent = [
-      ['Name', 'Email', 'Phone', 'College', 'Room', 'Parent Contact', 'Address'],
-      ...students.map(s => [
-        s.name,
-        s.email,
-        s.phone,
-        s.college || '',
-        getRoomByStudent(s.roomId)?.roomNumber || 'Not Assigned',
-        s.parentContact || '',
-        s.address || ''
-      ])
-    ].map(row => row.join(',')).join('\n');
+      ['Name', 'Email', 'Phone', 'College', 'Parent Contact', 'Address'],
+      ...students.map((student) => [
+        student.name,
+        student.email,
+        student.phone,
+        student.college,
+        student.parentContact,
+        student.address,
+      ]),
+    ]
+      .map((row) => row.map((value) => `"${value ?? ''}"`).join(','))
+      .join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'students.csv';
-    a.click();
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${owner.hostelName.replace(/\s+/g, '-').toLowerCase()}-students.csv`;
+    link.click();
     URL.revokeObjectURL(url);
-    
+
     toast({
       title: 'Export Complete',
-      description: 'Student data has been exported to CSV.',
+      description: 'Database-backed student records were exported to CSV.',
     });
   };
 
   return (
     <OwnerLayout>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="space-y-4 lg:space-y-6"
-      >
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold gradient-text">Student Records</h1>
-            <p className="text-muted-foreground mt-1 text-sm lg:text-base">
-              Manage all student/hosteler information
+            <h1 className="gradient-text text-3xl font-bold">Student Records</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Add students once and let them log in with the same hostel-linked details.
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              onClick={exportData}
-              className="border-teal-500/30 text-teal-400 hover:bg-teal-500/10 text-sm"
-            >
-              <Download className="w-4 h-4 mr-1 lg:mr-2" />
-              <span className="hidden sm:inline">Export</span>
+            <Button variant="outline" onClick={exportData} className="border-teal-500/30 text-teal-300 hover:bg-teal-500/10">
+              <Download className="mr-2 h-4 w-4" />
+              Export
             </Button>
             <Button
-              onClick={() => setIsDialogOpen(true)}
-              className="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-sm"
+              onClick={() => {
+                resetForm();
+                setIsDialogOpen(true);
+              }}
+              className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-600 hover:to-cyan-600"
             >
-              <Plus className="w-4 h-4 mr-1 lg:mr-2" />
-              <span className="hidden sm:inline">Add Student</span>
-              <span className="sm:hidden">Add</span>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Student
             </Button>
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+        <div className="grid gap-4 md:grid-cols-3">
           {[
-            { label: 'Total Students', value: students.length, icon: Users, color: 'teal' },
-            { label: 'With Room', value: students.filter(s => s.roomId).length, icon: DoorOpen, color: 'green' },
-            { label: 'Without Room', value: students.filter(s => !s.roomId).length, icon: User, color: 'amber' },
-            { label: 'Available Beds', value: rooms.reduce((acc, r) => acc + (r.capacity - r.occupants.length), 0), icon: DoorOpen, color: 'purple' },
-          ].map((stat, index) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <Card className="glass">
-                <CardContent className="p-3 lg:p-4 flex items-center gap-3">
-                  <div className={`w-9 h-9 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                    stat.color === 'teal' ? 'bg-teal-500/20 text-teal-400' :
-                    stat.color === 'green' ? 'bg-green-500/20 text-green-400' :
-                    stat.color === 'amber' ? 'bg-amber-500/20 text-amber-400' :
-                    'bg-purple-500/20 text-purple-400'
-                  }`}>
-                    <stat.icon className="w-5 h-5 lg:w-6 lg:h-6" />
+            {
+              label: 'Total Students',
+              value: students.length,
+              icon: Users,
+              tint: 'from-teal-500/25 to-cyan-500/10',
+            },
+            {
+              label: 'Portal Ready',
+              value: students.length,
+              icon: Link2,
+              tint: 'from-amber-500/25 to-orange-500/10',
+            },
+            {
+              label: 'Hostel Protected',
+              value: owner.hostelName,
+              icon: ShieldCheck,
+              tint: 'from-sky-500/25 to-blue-500/10',
+            },
+          ].map((item) => (
+            <Card key={item.label} className="glass card-3d-flat overflow-hidden">
+              <CardContent className="relative p-5">
+                <div className={`absolute inset-0 bg-gradient-to-br ${item.tint}`} />
+                <div className="relative z-10 flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">{item.label}</p>
+                    <p className="mt-2 text-2xl font-bold">{item.value}</p>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-xs lg:text-sm text-muted-foreground truncate">{stat.label}</p>
-                    <p className="text-xl lg:text-2xl font-bold">{stat.value}</p>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10">
+                    <item.icon className="h-5 w-5 text-white" />
                   </div>
-                </CardContent>
-              </Card>
-            </motion.div>
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
 
-        {/* Search */}
-        <div className="relative max-w-full lg:max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 lg:w-5 lg:h-5 text-muted-foreground" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, email, or college..."
-            className="pl-9 lg:pl-10 input-dark"
-          />
-        </div>
-
-        {/* Empty State */}
-        {students.length === 0 && (
-          <Card className="glass border-teal-500/30">
-            <CardContent className="p-6 lg:p-10 text-center">
-              <div className="w-16 h-16 lg:w-20 lg:h-20 rounded-2xl bg-gradient-to-br from-teal-500/20 to-amber-500/20 flex items-center justify-center mx-auto mb-4">
-                <Users className="w-8 h-8 lg:w-10 lg:h-10 text-teal-400" />
+        <Card className="glass overflow-hidden border-white/10">
+          <CardContent className="p-4">
+            <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by name, email, or college..."
+                  className="input-dark pl-10"
+                />
               </div>
-              <h2 className="text-xl lg:text-2xl font-bold mb-2">No Students Yet</h2>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto text-sm lg:text-base">
-                Add your first student to start managing their information, room assignments, and fees.
-              </p>
-              <Button
-                onClick={() => setIsDialogOpen(true)}
-                className="bg-gradient-to-r from-teal-500 to-teal-600"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Your First Student
-              </Button>
+              <div className="rounded-2xl border border-teal-500/20 bg-teal-500/5 px-4 py-3 text-xs text-muted-foreground">
+                Students log in with the exact email and password saved here.
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {isLoading ? (
+          <Card className="glass">
+            <CardContent className="flex items-center justify-center p-10">
+              <div className="spinner h-8 w-8" />
             </CardContent>
           </Card>
-        )}
-
-        {/* Students Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 lg:gap-4">
-          <AnimatePresence>
-            {filteredStudents.map((student, index) => {
-              const room = getRoomByStudent(student.roomId);
-              
-              return (
+        ) : students.length === 0 ? (
+          <Card className="glass border-teal-500/30">
+            <CardContent className="p-10 text-center">
+              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-gradient-to-br from-teal-500/20 to-cyan-500/20">
+                <Users className="h-10 w-10 text-teal-300" />
+              </div>
+              <h2 className="text-2xl font-bold">No Students Yet</h2>
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+                Add your first student from this screen. That instantly creates a hostel-linked account the student can use in the student portal.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <AnimatePresence>
+              {filteredStudents.map((student, index) => (
                 <motion.div
                   key={student.id}
-                  initial={{ opacity: 0, scale: 0.9 }}
+                  initial={{ opacity: 0, scale: 0.92 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ delay: index * 0.05 }}
-                  whileHover={{ y: -5 }}
+                  exit={{ opacity: 0, scale: 0.92 }}
+                  transition={{ delay: index * 0.03 }}
                 >
-                  <Card className="glass hover:shadow-lg hover:shadow-teal-500/10 transition-all">
-                    <CardContent className="p-4 lg:p-5">
-                      <div className="flex items-start justify-between mb-3 lg:mb-4">
-                        <div className="flex items-center gap-2 lg:gap-3 min-w-0 flex-1">
-                          <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+                  <Card className="glass card-3d h-full overflow-hidden border-white/10">
+                    <CardContent className="p-5">
+                      <div className="mb-4 flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-500 text-lg font-bold text-white shadow-lg shadow-teal-500/20">
                             {student.name.charAt(0)}
                           </div>
                           <div className="min-w-0">
-                            <h3 className="font-semibold text-sm lg:text-base truncate">{student.name}</h3>
-                            <p className="text-xs lg:text-sm text-muted-foreground truncate">{student.college}</p>
+                            <h3 className="truncate text-base font-semibold">{student.name}</h3>
+                            <p className="truncate text-sm text-muted-foreground">{student.college || 'Hostel student'}</p>
                           </div>
                         </div>
-                        <Badge variant="outline" className={`text-[10px] lg:text-xs flex-shrink-0 ml-2 ${room ? 'border-teal-500/30 text-teal-400' : 'border-amber-500/30 text-amber-400'}`}>
-                          {room ? `R${room.roomNumber}` : 'No Room'}
+                        <Badge variant="outline" className="border-teal-500/30 text-teal-300">
+                          Linked
                         </Badge>
                       </div>
-                      
-                      <div className="space-y-1.5 lg:space-y-2 text-xs lg:text-sm">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Mail className="w-3 h-3 lg:w-4 lg:h-4 flex-shrink-0" />
+
+                      <div className="space-y-2 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4 shrink-0" />
                           <span className="truncate">{student.email}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Phone className="w-3 h-3 lg:w-4 lg:h-4 flex-shrink-0" />
-                          <span className="truncate">{student.phone || 'No phone'}</span>
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 shrink-0" />
+                          <span>{student.phone || 'No phone added'}</span>
                         </div>
-                        {student.parentContact && (
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <User className="w-3 h-3 lg:w-4 lg:h-4 flex-shrink-0" />
-                            <span className="truncate">Parent: {student.parentContact}</span>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 shrink-0" />
+                          <span>{student.parentContact || 'No parent contact added'}</span>
+                        </div>
                       </div>
-                      
-                      <div className="flex gap-2 mt-3 lg:mt-4 pt-3 lg:pt-4 border-t border-border/30">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleEdit(student)}
-                          className="flex-1 h-8 lg:h-9 text-teal-400 hover:text-teal-300 hover:bg-teal-500/10 text-xs lg:text-sm"
-                        >
-                          <Edit2 className="w-3 h-3 lg:w-4 lg:h-4 mr-1" />
+
+                      <div className="mt-4 rounded-2xl border border-white/10 bg-black/10 p-3 text-xs leading-5 text-muted-foreground">
+                        Login route: {student.email} is mapped to <span className="text-teal-300">{owner.hostelName}</span>.
+                      </div>
+
+                      <div className="mt-4 flex gap-2 border-t border-white/10 pt-4">
+                        <Button size="sm" variant="ghost" onClick={() => handleEdit(student)} className="flex-1 text-teal-300 hover:bg-teal-500/10 hover:text-teal-200">
+                          <Edit2 className="mr-1 h-4 w-4" />
                           Edit
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDelete(student)}
-                          className="flex-1 h-8 lg:h-9 text-red-400 hover:text-red-300 hover:bg-red-500/10 text-xs lg:text-sm"
-                        >
-                          <Trash2 className="w-3 h-3 lg:w-4 lg:h-4 mr-1" />
+                        <Button size="sm" variant="ghost" onClick={() => handleDelete(student)} className="flex-1 text-red-300 hover:bg-red-500/10 hover:text-red-200">
+                          <Trash2 className="mr-1 h-4 w-4" />
                           Remove
                         </Button>
                       </div>
                     </CardContent>
                   </Card>
                 </motion.div>
-              );
-            })}
-          </AnimatePresence>
-        </div>
-
-        {filteredStudents.length === 0 && students.length > 0 && (
-          <div className="text-center py-12">
-            <Users className="w-16 h-16 mx-auto text-muted-foreground/50 mb-4" />
-            <p className="text-muted-foreground">No students found matching your search</p>
+              ))}
+            </AnimatePresence>
           </div>
+        )}
+
+        {!isLoading && filteredStudents.length === 0 && students.length > 0 && (
+          <div className="py-12 text-center text-muted-foreground">No students found matching your search.</div>
         )}
       </motion.div>
 
-      {/* Add/Edit Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
-        <DialogContent className="glass max-w-lg w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto">
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) resetForm();
+        }}
+      >
+        <DialogContent className="glass max-w-2xl border-white/10">
           <DialogHeader>
-            <DialogTitle className="gradient-text text-lg lg:text-xl">
+            <DialogTitle className="gradient-text text-xl">
               {editingStudent ? 'Edit Student' : 'Add New Student'}
             </DialogTitle>
           </DialogHeader>
-          
-          <form onSubmit={handleSubmit} className="space-y-3 lg:space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4">
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label className="text-sm">Full Name *</Label>
+                <Label>Full Name</Label>
                 <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  value={form.name}
+                  onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))}
                   placeholder="Alice Johnson"
                   className="input-dark"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-sm">Email *</Label>
+                <Label>Email</Label>
                 <Input
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={form.email}
+                  onChange={(e) => setForm((current) => ({ ...current, email: e.target.value }))}
                   placeholder="alice@example.com"
                   className="input-dark"
                   required
                 />
               </div>
             </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4">
+
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label className="text-sm">Password {!editingStudent && '*'}</Label>
+                <Label>Password {editingStudent ? '(Leave blank to keep current)' : ''}</Label>
                 <Input
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={editingStudent ? 'Leave blank to keep' : 'student123'}
+                  value={form.password}
+                  onChange={(e) => setForm((current) => ({ ...current, password: e.target.value }))}
+                  placeholder={editingStudent ? 'Keep existing password' : 'Create student password'}
                   className="input-dark"
                   required={!editingStudent}
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-sm">Phone Number</Label>
+                <Label>Phone Number</Label>
                 <Input
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+1 111 222 3333"
+                  value={form.phone}
+                  onChange={(e) => setForm((current) => ({ ...current, phone: e.target.value }))}
+                  placeholder="+91 9876543210"
                   className="input-dark"
                 />
               </div>
             </div>
-            
+
             <div className="space-y-2">
-              <Label className="text-sm">College/University</Label>
+              <Label>College / University</Label>
               <Input
-                value={college}
-                onChange={(e) => setCollege(e.target.value)}
-                placeholder="MIT, Stanford, etc."
+                value={form.college}
+                onChange={(e) => setForm((current) => ({ ...current, college: e.target.value }))}
+                placeholder="JNTU, Osmania, etc."
                 className="input-dark"
               />
             </div>
-            
-            <div className="space-y-2">
-              <Label className="text-sm">Assign Room</Label>
-              <Select value={selectedRoomId} onValueChange={setSelectedRoomId}>
-                <SelectTrigger className="input-dark">
-                  <SelectValue placeholder="Select a room" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">No Room</SelectItem>
-                  {availableRooms.map(room => (
-                    <SelectItem key={room.id} value={room.id}>
-                      Room {room.roomNumber} ({room.occupants.length}/{room.capacity} occupied)
-                    </SelectItem>
-                  ))}
-                  {editingStudent?.roomId && !availableRooms.find(r => r.id === editingStudent.roomId) && (
-                    <SelectItem value={editingStudent.roomId}>
-                      Room {getRoomByStudent(editingStudent.roomId)?.roomNumber} (Current)
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Parent Contact</Label>
+                <Input
+                  value={form.parentContact}
+                  onChange={(e) => setForm((current) => ({ ...current, parentContact: e.target.value }))}
+                  placeholder="+91 9123456789"
+                  className="input-dark"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Home Address</Label>
+                <Input
+                  value={form.address}
+                  onChange={(e) => setForm((current) => ({ ...current, address: e.target.value }))}
+                  placeholder="123 Main Street"
+                  className="input-dark"
+                />
+              </div>
             </div>
-            
-            <div className="space-y-2">
-              <Label className="text-sm">Parent Contact</Label>
-              <Input
-                value={parentContact}
-                onChange={(e) => setParentContact(e.target.value)}
-                placeholder="+1 999 888 7777"
-                className="input-dark"
-              />
+
+            <div className="rounded-2xl border border-teal-500/20 bg-teal-500/5 px-4 py-3 text-xs leading-5 text-muted-foreground">
+              These credentials become the student&apos;s hostel login. Once saved, the student can enter from the student portal using the same email and password.
             </div>
-            
-            <div className="space-y-2">
-              <Label className="text-sm">Home Address</Label>
-              <Input
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="123 Home Street, City"
-                className="input-dark"
-              />
-            </div>
-            
-            <div className="flex gap-3 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => { setIsDialogOpen(false); resetForm(); }}
-                className="flex-1"
-              >
+
+            <div className="flex gap-3 pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="flex-1">
                 Cancel
               </Button>
               <Button
                 type="submit"
-                className="flex-1 bg-gradient-to-r from-teal-500 to-teal-600"
+                disabled={isSubmitting}
+                className="flex-1 bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-600 hover:to-cyan-600"
               >
-                {editingStudent ? 'Update' : 'Add'} Student
+                {isSubmitting ? <div className="spinner h-5 w-5" /> : editingStudent ? 'Update Student' : 'Create Student Login'}
               </Button>
             </div>
           </form>

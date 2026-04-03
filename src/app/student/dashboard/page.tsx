@@ -1,35 +1,69 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { 
-  User, DoorOpen, DollarSign, AlertTriangle, UtensilsCrossed,
-  Clock, CheckCircle2, Calendar, Phone, Mail, School
+import {
+  AlertTriangle,
+  Building2,
+  Calendar,
+  CheckCircle2,
+  DollarSign,
+  DoorOpen,
+  Mail,
+  Phone,
+  School,
+  User,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth-store';
-import { useDataStore } from '@/lib/data-store';
+import { requestJson } from '@/lib/api-client';
 import { StudentLayout } from '@/components/student/student-sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1 },
-  },
+type StudentProfile = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  college: string;
+  hostelName: string;
 };
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
+type StudentRoom = {
+  id: string;
+  roomNumber: string;
+  floor: number;
+  capacity: number;
+} | null;
+
+type StudentFee = {
+  id: string;
+  amount: number;
+  dueDate: string;
+  status: string;
+  month: string;
+};
+
+type StudentComplaint = {
+  id: string;
+  title: string;
+  category: string;
+  status: string;
+};
+
+type DashboardPayload = {
+  student: StudentProfile;
+  room: StudentRoom;
+  fees: StudentFee[];
+  complaints: StudentComplaint[];
+  meals: unknown[];
 };
 
 export default function StudentDashboardPage() {
   const router = useRouter();
   const { student, isAuthenticated, userType } = useAuthStore();
-  const { rooms, fees, complaints, meals, mealParticipations } = useDataStore();
+  const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated || userType !== 'student') {
@@ -37,267 +71,201 @@ export default function StudentDashboardPage() {
     }
   }, [isAuthenticated, userType, router]);
 
+  useEffect(() => {
+    if (!student?.id) return;
+
+    const loadDashboard = async () => {
+      try {
+        const response = await requestJson<DashboardPayload>(`/api/students/${student.id}/dashboard`);
+        setDashboard(response);
+      } catch {
+        setDashboard(null);
+      }
+    };
+
+    loadDashboard();
+  }, [student?.id]);
+
   if (!student) return null;
 
-  // Get student's room
-  const room = rooms.find(r => r.id === student.roomId);
-  
-  // Get student's fees
-  const studentFees = fees.filter(f => f.studentId === student.id);
-  const paidFees = studentFees.filter(f => f.status === 'Paid').reduce((acc, f) => acc + f.amount, 0);
-  const pendingFees = studentFees.filter(f => f.status !== 'Paid').reduce((acc, f) => acc + f.amount, 0);
-  
-  // Get student's complaints
-  const studentComplaints = complaints.filter(c => c.studentId === student.id);
-  const openComplaints = studentComplaints.filter(c => c.status !== 'Resolved').length;
-  
-  // Get today's meals
-  const today = new Date().toISOString().split('T')[0];
-  const todayMeals = meals.filter(m => m.date === today);
+  const activeStudent = dashboard?.student ?? {
+    id: student.id,
+    name: student.name,
+    email: student.email,
+    phone: student.phone ?? '',
+    college: student.college ?? '',
+    hostelName: student.hostelName ?? 'My Hostel',
+  };
+
+  const room = dashboard?.room ?? null;
+  const fees = dashboard?.fees ?? [];
+  const complaints = dashboard?.complaints ?? [];
+  const pendingFees = fees.filter((fee) => fee.status !== 'Paid').reduce((sum, fee) => sum + fee.amount, 0);
+  const paidFees = fees.filter((fee) => fee.status === 'Paid').reduce((sum, fee) => sum + fee.amount, 0);
+  const openComplaints = complaints.filter((complaint) => complaint.status !== 'Resolved').length;
 
   return (
     <StudentLayout>
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="space-y-4 lg:space-y-6"
-      >
-        {/* Header */}
-        <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold gradient-text-reverse">Dashboard</h1>
-            <p className="text-muted-foreground mt-1 text-sm lg:text-base">
-              Welcome back, {student.name}!
+            <h1 className="gradient-text-alt text-3xl font-bold">Dashboard</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              You are connected to {activeStudent.hostelName} with the details created by your hostel owner.
             </p>
           </div>
-          <div className="flex items-center gap-2 text-xs lg:text-sm text-muted-foreground">
-            <Calendar className="w-4 h-4" />
-            {new Date().toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
+          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-muted-foreground">
+            <Calendar className="h-4 w-4" />
+            {new Date().toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
             })}
           </div>
-        </motion.div>
+        </div>
 
-        {/* Profile Card */}
-        <motion.div variants={itemVariants}>
-          <Card className="glass">
-            <CardContent className="p-4 lg:p-6">
-              <div className="flex flex-col md:flex-row items-start md:items-center gap-4 lg:gap-6">
-                <div className="w-16 h-16 lg:w-20 lg:h-20 rounded-xl lg:rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-white text-2xl lg:text-3xl font-bold shadow-lg shadow-amber-500/30">
-                  {student.name.charAt(0)}
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-xl lg:text-2xl font-bold">{student.name}</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 lg:gap-4 mt-3 lg:mt-4">
-                    <div className="flex items-center gap-2 text-muted-foreground text-sm lg:text-base">
-                      <Mail className="w-4 h-4 flex-shrink-0" />
-                      <span className="truncate">{student.email}</span>
-                    </div>
-                    {student.phone && (
-                      <div className="flex items-center gap-2 text-muted-foreground text-sm lg:text-base">
-                        <Phone className="w-4 h-4 flex-shrink-0" />
-                        <span className="truncate">{student.phone}</span>
-                      </div>
-                    )}
-                    {student.college && (
-                      <div className="flex items-center gap-2 text-muted-foreground text-sm lg:text-base">
-                        <School className="w-4 h-4 flex-shrink-0" />
-                        <span className="truncate">{student.college}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                {room && (
-                  <div className="flex flex-col items-start md:items-end gap-1 lg:gap-2">
-                    <Badge variant="outline" className="border-amber-500/30 text-amber-400 text-base lg:text-lg px-3 lg:px-4 py-1">
-                      <DoorOpen className="w-4 h-4 mr-2" />
-                      Room {room.roomNumber}
-                    </Badge>
-                    <span className="text-xs lg:text-sm text-muted-foreground">
-                      {room.capacity}-sharing • Floor {room.floor}
-                    </span>
-                  </div>
-                )}
+        <Card className="glass card-3d overflow-hidden border-white/10">
+          <CardContent className="p-6">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+              <div className="flex h-20 w-20 items-center justify-center rounded-[2rem] bg-gradient-to-br from-amber-500 to-orange-500 text-3xl font-bold text-white shadow-lg shadow-amber-500/20">
+                {activeStudent.name.charAt(0)}
               </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold">{activeStudent.name}</h2>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Mail className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{activeStudent.email}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Phone className="h-4 w-4 shrink-0" />
+                    <span>{activeStudent.phone || 'No phone'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <School className="h-4 w-4 shrink-0" />
+                    <span>{activeStudent.college || 'No college added'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Building2 className="h-4 w-4 shrink-0" />
+                    <span>{activeStudent.hostelName}</span>
+                  </div>
+                </div>
+              </div>
+              <Badge variant="outline" className="border-amber-500/30 px-4 py-2 text-amber-300">
+                <User className="mr-2 h-4 w-4" />
+                Hostel Linked
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Stats Grid */}
-        <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {[
             {
-              title: 'Fee Status',
-              value: pendingFees > 0 ? `₹${pendingFees.toLocaleString()}` : 'All Clear',
+              title: 'Pending Fees',
+              value: pendingFees ? `Rs ${pendingFees.toLocaleString()}` : 'All Clear',
+              subtext: `Rs ${paidFees.toLocaleString()} paid`,
               icon: DollarSign,
-              color: pendingFees > 0 ? 'red' : 'green',
-              subtext: `₹${paidFees.toLocaleString()} paid`
             },
             {
-              title: 'Active Complaints',
+              title: 'Open Complaints',
               value: openComplaints,
+              subtext: `${complaints.length} total records`,
               icon: AlertTriangle,
-              color: openComplaints > 0 ? 'amber' : 'teal',
-              subtext: `${studentComplaints.length} total`
             },
             {
-              title: "Today's Meals",
-              value: todayMeals.length,
-              icon: UtensilsCrossed,
-              color: 'amber',
-              subtext: 'scheduled'
-            },
-            {
-              title: 'Room',
-              value: room ? `R${room.roomNumber}` : 'Not Set',
+              title: 'Assigned Room',
+              value: room ? `R${room.roomNumber}` : 'Pending',
+              subtext: room ? `Floor ${room.floor} • ${room.capacity} sharing` : 'Ask owner for room assignment',
               icon: DoorOpen,
-              color: room ? 'teal' : 'red',
-              subtext: room ? `${room.capacity}-sharing` : 'Contact owner'
             },
-          ].map((stat, index) => (
-            <motion.div
-              key={stat.title}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.1 }}
-              whileHover={{ scale: 1.02 }}
-            >
-              <Card className="glass h-full">
-                <CardContent className="p-3 lg:p-4">
-                  <div className="flex items-start justify-between mb-1 lg:mb-2">
-                    <p className="text-xs lg:text-sm text-muted-foreground">{stat.title}</p>
-                    <div className={`w-7 h-7 lg:w-8 lg:h-8 rounded-lg flex items-center justify-center ${
-                      stat.color === 'red' ? 'bg-red-500/20 text-red-400' :
-                      stat.color === 'amber' ? 'bg-amber-500/20 text-amber-400' :
-                      stat.color === 'green' ? 'bg-green-500/20 text-green-400' :
-                      'bg-teal-500/20 text-teal-400'
-                    }`}>
-                      <stat.icon className="w-4 h-4" />
-                    </div>
+            {
+              title: 'Portal Status',
+              value: 'Connected',
+              subtext: 'Owner-created login matched',
+              icon: CheckCircle2,
+            },
+          ].map((card) => (
+            <Card key={card.title} className="glass card-3d-flat overflow-hidden border-white/10">
+              <CardContent className="p-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">{card.title}</p>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10">
+                    <card.icon className="h-4 w-4 text-white" />
                   </div>
-                  <p className="text-lg lg:text-xl font-bold truncate">{stat.value}</p>
-                  <p className="text-[10px] lg:text-xs text-muted-foreground mt-1">{stat.subtext}</p>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </motion.div>
-
-        {/* Empty State for new students */}
-        {studentFees.length === 0 && studentComplaints.length === 0 && (
-          <motion.div
-            variants={itemVariants}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-          >
-            <Card className="glass border-amber-500/30">
-              <CardContent className="p-6 lg:p-8 text-center">
-                <div className="w-14 h-14 lg:w-16 lg:h-16 rounded-2xl bg-gradient-to-br from-amber-500/20 to-teal-500/20 flex items-center justify-center mx-auto mb-4">
-                  <User className="w-7 h-7 lg:w-8 lg:h-8 text-amber-400" />
                 </div>
-                <h2 className="text-lg lg:text-xl font-bold mb-2">Welcome to RestCrew!</h2>
-                <p className="text-muted-foreground mb-4 text-sm lg:text-base">
-                  {room 
-                    ? "You're all set! View your meals, submit complaints, or check your fees."
-                    : "Your account is ready. Contact the hostel owner for room assignment."}
-                </p>
+                <p className="text-2xl font-bold">{card.value}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{card.subtext}</p>
               </CardContent>
             </Card>
-          </motion.div>
-        )}
+          ))}
+        </div>
 
-        {/* Content Grid */}
-        {(studentFees.length > 0 || studentComplaints.length > 0) && (
-          <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-            {/* Recent Complaints */}
-            <Card className="glass">
-              <CardHeader className="p-4 lg:p-6">
-                <CardTitle className="flex items-center gap-2 text-base lg:text-lg">
-                  <AlertTriangle className="w-4 h-4 lg:w-5 lg:h-5 text-amber-400" />
-                  My Complaints
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 lg:p-6 pt-0">
-                {studentComplaints.length > 0 ? (
-                  <div className="space-y-3">
-                    {studentComplaints.slice(0, 4).map(complaint => (
-                      <div
-                        key={complaint.id}
-                        className="p-3 rounded-xl bg-slate-800/50 border border-border/30"
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-medium text-sm lg:text-base truncate">{complaint.title}</span>
-                          <Badge variant="outline" className={`
-                            text-[10px] lg:text-xs ml-2 flex-shrink-0
-                            ${complaint.status === 'Open' ? 'border-red-500/30 text-red-400 bg-red-500/10' :
-                              complaint.status === 'Pending' ? 'border-amber-500/30 text-amber-400 bg-amber-500/10' :
-                              'border-green-500/30 text-green-400 bg-green-500/10'}
-                          `}>
-                            {complaint.status}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground">{complaint.category}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <CheckCircle2 className="w-10 h-10 lg:w-12 lg:h-12 mx-auto text-green-400/50 mb-2" />
-                    <p className="text-muted-foreground text-sm">No complaints submitted</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Fee Status */}
-            <Card className="glass">
-              <CardHeader className="p-4 lg:p-6">
-                <CardTitle className="flex items-center gap-2 text-base lg:text-lg">
-                  <DollarSign className="w-4 h-4 lg:w-5 lg:h-5 text-green-400" />
-                  Fee Status
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 lg:p-6 pt-0">
-                {studentFees.length > 0 ? (
-                  <div className="space-y-3">
-                    {studentFees.slice(0, 4).map(fee => (
-                      <div
-                        key={fee.id}
-                        className="flex items-center justify-between p-3 rounded-xl bg-slate-800/50 border border-border/30"
-                      >
+        <div className="grid gap-6 xl:grid-cols-2">
+          <Card className="glass border-white/10">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <AlertTriangle className="h-5 w-5 text-amber-300" />
+                My Complaints
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {complaints.length > 0 ? (
+                <div className="space-y-3">
+                  {complaints.slice(0, 4).map((complaint) => (
+                    <div key={complaint.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="font-medium text-sm lg:text-base">{fee.month}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Due: {new Date(fee.dueDate).toLocaleDateString()}
-                          </p>
+                          <p className="font-medium">{complaint.title}</p>
+                          <p className="text-xs text-muted-foreground">{complaint.category}</p>
                         </div>
-                        <div className="text-right">
-                          <p className="font-bold text-sm lg:text-base">₹{fee.amount.toLocaleString()}</p>
-                          <Badge variant="outline" className={`text-[10px] lg:text-xs ${
-                            fee.status === 'Paid' ? 'border-green-500/30 text-green-400 bg-green-500/10' :
-                            fee.status === 'Pending' ? 'border-amber-500/30 text-amber-400 bg-amber-500/10' :
-                            'border-red-500/30 text-red-400 bg-red-500/10'
-                          }`}>
-                            {fee.status}
-                          </Badge>
-                        </div>
+                        <Badge variant="outline">{complaint.status}</Badge>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <DollarSign className="w-10 h-10 lg:w-12 lg:h-12 mx-auto text-muted-foreground/50 mb-2" />
-                    <p className="text-muted-foreground text-sm">No fee records found</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-muted-foreground">
+                  No complaint records found yet.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="glass border-white/10">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <DollarSign className="h-5 w-5 text-green-300" />
+                Fee Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {fees.length > 0 ? (
+                <div className="space-y-3">
+                  {fees.slice(0, 4).map((fee) => (
+                    <div key={fee.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <div>
+                        <p className="font-medium">{fee.month}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Due {new Date(fee.dueDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold">Rs {fee.amount.toLocaleString()}</p>
+                        <Badge variant="outline">{fee.status}</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-muted-foreground">
+                  No fee records found yet.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </motion.div>
     </StudentLayout>
   );

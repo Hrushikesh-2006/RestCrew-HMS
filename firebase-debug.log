@@ -1,0 +1,22 @@
+[debug] [2026-04-03T10:52:40.545Z] ----------------------------------------------------------------------
+[debug] [2026-04-03T10:52:40.549Z] Command:       C:\Program Files\nodejs\node_modules\node.exe C:\Users\ANUMULA HRUSHIKESH\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js init
+[debug] [2026-04-03T10:52:40.550Z] CLI Version:   15.13.0
+[debug] [2026-04-03T10:52:40.550Z] Platform:      win32
+[debug] [2026-04-03T10:52:40.550Z] Node Version:  v22.20.0
+[debug] [2026-04-03T10:52:40.551Z] Time:          Fri Apr 03 2026 16:22:40 GMT+0530 (India Standard Time)
+[debug] [2026-04-03T10:52:40.551Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-04-03T10:52:40.555Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[info] 
+     ######## #### ########  ######## ########     ###     ######  ########
+     ##        ##  ##     ## ##       ##     ##  ##   ##  ##       ##
+     ######    ##  ########  ######   ########  #########  ######  ######
+     ##        ##  ##    ##  ##       ##     ## ##     ##       ## ##
+     ##       #### ##     ## ######## ########  ##     ##  ######  ########
+
+You're about to initialize a Firebase project in this directory:
+
+  C:\Users\ANUMULA HRUSHIKESH\Downloads\restcrew-hostel-management
+
+[debug] [2026-04-03T10:52:57.235Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2026-04-03T10:52:57.236Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}

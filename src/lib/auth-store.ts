@@ -22,6 +22,8 @@ export interface Student {
   address?: string;
   roomId?: string;
   roomNumber?: string;
+  ownerId?: string;
+  hostelName?: string;
 }
 
 interface AuthState {

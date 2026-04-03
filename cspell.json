@@ -1,0 +1,22 @@
+﻿{
+    "version":  "0.2",
+    "words":  [
+                  "glassmorphism",
+                  "RestCrew",
+                  "mdxeditor",
+                  "cmdk",
+                  "Permissioned",
+                  "reactuses",
+                  "vaul"
+              ],
+    "ignorePaths":  [
+                        "bun.lock",
+                        "package-lock.json",
+                        "node_modules/**",
+                        ".next/**"
+                    ],
+    "ignoreRegExpList":  [
+                             "\\b[a-z]+:\\w+(?:-\\w+)*-\\[[^\\]]+\\]",
+                             "\\b[a-z]+-\\[[^\\]]+\\]"
+                         ]
+}

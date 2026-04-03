@@ -1,0 +1,24 @@
+﻿{
+    "files.associations":  {
+                               "bun.lock":  "plaintext"
+                           },
+    "cSpell.words":  [
+                         "glassmorphism",
+                         "RestCrew",
+                         "mdxeditor",
+                         "cmdk",
+                         "Permissioned",
+                         "reactuses",
+                         "vaul"
+                     ],
+    "cSpell.ignorePaths":  [
+                               "bun.lock",
+                               "package-lock.json",
+                               "node_modules",
+                               ".next"
+                           ],
+    "cSpell.ignoreRegExpList":  [
+                                    "/\\b[a-z]+:\\w+(?:-\\w+)*-\\[[^\\]]+\\]/g",
+                                    "/\\b[a-z]+-\\[[^\\]]+\\]/g"
+                                ]
+}
