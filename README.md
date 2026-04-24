@@ -4,6 +4,18 @@ RestCrew is a state-of-the-art, full-stack hostel management platform designed t
 
 ---
 
+## 👥 Meet the Team
+
+RestCrew was passionately developed and maintained by:
+
+| Name | Role |
+| :--- | :--- |
+| **A. Hrushikesh** | 👑 **Team Leader** |
+| **V. Manohar** | 🛠 **Team Member** |
+| **G. Giri Charan** | 🛠 **Team Member** |
+
+---
+
 ## 🚀 Project Overview
 
 Managing a hostel involves complex coordination between room allocations, student records, meal planning, and complaint resolution. RestCrew centralizes all these tasks into a single, beautiful interface. It ensures data persistence using a high-performance PostgreSQL backend and provides instant updates through a modern reactive frontend.
@@ -28,19 +40,16 @@ Managing a hostel involves complex coordination between room allocations, studen
 
 ## 🛠 Tech Stack
 
-RestCrew is built using the most modern web technologies to ensure speed, security, and scalability.
+RestCrew is built using the most modern web technologies for maximum performance and reliability.
 
 | Layer | Technology |
 | :--- | :--- |
-| **Frontend Framework** | Next.js 16 (App Router) |
-| **User Interface** | React 19, Tailwind CSS 4 |
-| **Components** | Shadcn UI, Radix UI |
-| **Animations** | Framer Motion |
-| **Database & ORM** | PostgreSQL, Prisma ORM |
-| **Authentication** | Firebase Authentication |
-| **State Management** | Zustand |
-| **Icons** | Lucide React |
-| **Deployment** | Vercel |
+| **Frontend Framework** | ![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat-square&logo=next.js&logoColor=white) |
+| **User Interface** | ![React](https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB) ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white) |
+| **Database & ORM** | ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=flat-square&logo=postgresql&logoColor=white) ![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=flat-square&logo=Prisma&logoColor=white) |
+| **Authentication** | ![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=flat-square&logo=firebase&logoColor=black) |
+| **Animations** | ![Framer](https://img.shields.io/badge/Framer_Motion-0055FF?style=flat-square&logo=framer&logoColor=white) |
+| **Deployment** | ![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat-square&logo=vercel&logoColor=white) |
 
 ---
 
@@ -86,12 +95,12 @@ graph TD
 ### Owner Dashboard
 The central hub for hostel administration, featuring glassmorphism cards and real-time analytics.
 
-![Owner Dashboard Mockup](public/readme/owner_preview.png)
+![Owner Dashboard Actual](public/readme/owner_dashboard.png)
 
-### Student Portal
+### Hosteler Portal
 A mobile-optimized interface allowing students to manage their hostel life on the go.
 
-![Student Dashboard Mockup](public/readme/student_preview.png)
+![Hosteler Dashboard Preview](public/readme/student_preview.png)
 
 ---
 
@@ -105,16 +114,6 @@ The development of RestCrew followed a rigorous engineering process:
 4. **Backend Integration**: Developing dynamic API routes in Next.js that interact with PostgreSQL, ensuring data persistence across sessions.
 5. **Real-time Sync**: Integrating Pusher and Zustand to provide an app-like experience where data updates instantly across all connected users.
 6. **Persistence Migration**: Moving from transient local storage to a production-grade PostgreSQL instance to ensure zero data loss.
-
----
-
-## 👥 Built By
-
-RestCrew was passionately developed by:
-
-*   **A. Hrushikesh**
-*   **V. Manohar**
-*   **G. Giri Charan**
 
 ---
 
