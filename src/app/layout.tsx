@@ -1,21 +1,30 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { PwaRegister } from "@/components/shared/pwa-register";
+import { AutomatedReminders } from "@/components/shared/automated-reminders";
+import { HydrationWrapper } from "@/components/shared/hydration-wrapper";
+import { ThemeProvider } from "@/lib/theme-provider";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { PwaInstallButton } from "@/components/shared/pwa-install-button";
 
 export const metadata: Metadata = {
   title: "RestCrew - Modern Hostel Management System",
   description: "A beautiful, modern hostel management system for owners and students",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "RestCrew",
+  },
+  icons: {
+    icon: "/logo.svg",
+    apple: "/logo.svg",
+  },
+};
+
+export const viewport = {
+  themeColor: "#0f172a",
 };
 
 export default function RootLayout({
@@ -24,12 +33,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
-        <Toaster />
+    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
+      <body className="antialiased app-shell">
+        {process.env.NODE_ENV === 'production' && <PwaRegister />}
+        <AutomatedReminders />
+        <HydrationWrapper>
+          <div className="app-content">
+            <ThemeProvider defaultTheme="light" storageKey="theme">
+              {children}
+              <PwaInstallButton />
+            </ThemeProvider>
+          </div>
+          <Toaster />
+        </HydrationWrapper>
       </body>
     </html>
   );

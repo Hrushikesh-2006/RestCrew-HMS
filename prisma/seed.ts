@@ -29,16 +29,16 @@ async function main() {
   console.log('Created owner:', owner.email);
 
   // Create Rooms
-  const rooms = await Promise.all([
-    prisma.room.create({
-      data: {
-        roomNumber: '101',
-        floor: 1,
-        capacity: 3,
-        amenities: JSON.stringify(['AC', 'Attached Bathroom', 'WiFi', 'Study Table']),
-        ownerId: owner.id,
-      },
-    }),
+    const rooms = await Promise.all([
+      prisma.room.create({
+        data: {
+          roomNumber: '101' as string,
+          floor: 1,
+          capacity: 3,
+          amenities: JSON.stringify(['AC', 'Attached Bathroom', 'WiFi', 'Study Table']) as string,
+          ownerId: owner.id as string,
+        },
+      }),
     prisma.room.create({
       data: {
         roomNumber: '102',
@@ -106,206 +106,18 @@ async function main() {
 
   console.log('Created', rooms.length, 'rooms');
 
-  // Create Students
-  const students = await Promise.all([
-    prisma.student.create({
-      data: {
-        email: 'rahul.sharma@student.com',
-        password: 'student123',
-        name: 'Rahul Sharma',
-        phone: '+91 98765 11111',
-        college: 'IIT Bangalore',
-        parentContact: '+91 98765 11112',
-        address: '45 MG Road, Delhi - 110001',
-        roomId: rooms[0].id,
-        ownerId: owner.id,
-      },
-    }),
-    prisma.student.create({
-      data: {
-        email: 'priya.patel@student.com',
-        password: 'student123',
-        name: 'Priya Patel',
-        phone: '+91 98765 22222',
-        college: 'NIT Karnataka',
-        parentContact: '+91 98765 22223',
-        address: '78 Brigade Road, Mumbai - 400001',
-        roomId: rooms[0].id,
-        ownerId: owner.id,
-      },
-    }),
-    prisma.student.create({
-      data: {
-        email: 'arjun.reddy@student.com',
-        password: 'student123',
-        name: 'Arjun Reddy',
-        phone: '+91 98765 33333',
-        college: 'BITS Pilani',
-        parentContact: '+91 98765 33334',
-        address: '12 Park Street, Hyderabad - 500001',
-        roomId: rooms[0].id,
-        ownerId: owner.id,
-      },
-    }),
-    prisma.student.create({
-      data: {
-        email: 'sneha.gupta@student.com',
-        password: 'student123',
-        name: 'Sneha Gupta',
-        phone: '+91 98765 44444',
-        college: 'IIM Bangalore',
-        parentContact: '+91 98765 44445',
-        address: '23 Church Street, Chennai - 600001',
-        roomId: rooms[1].id,
-        ownerId: owner.id,
-      },
-    }),
-    prisma.student.create({
-      data: {
-        email: 'vikram.singh@student.com',
-        password: 'student123',
-        name: 'Vikram Singh',
-        phone: '+91 98765 55555',
-        college: 'Delhi University',
-        parentContact: '+91 98765 55556',
-        address: '56 Connaught Place, Delhi - 110001',
-        roomId: rooms[1].id,
-        ownerId: owner.id,
-      },
-    }),
-    prisma.student.create({
-      data: {
-        email: 'ananya.roy@student.com',
-        password: 'student123',
-        name: 'Ananya Roy',
-        phone: '+91 98765 66666',
-        college: 'Jadavpur University',
-        parentContact: '+91 98765 66667',
-        address: '89 Park Avenue, Kolkata - 700001',
-        roomId: rooms[1].id,
-        ownerId: owner.id,
-      },
-    }),
-    prisma.student.create({
-      data: {
-        email: 'karan.mehta@student.com',
-        password: 'student123',
-        name: 'Karan Mehta',
-        phone: '+91 98765 77777',
-        college: 'VIT Vellore',
-        parentContact: '+91 98765 77778',
-        address: '34 Residency Road, Ahmedabad - 380001',
-        roomId: rooms[1].id,
-        ownerId: owner.id,
-      },
-    }),
-    prisma.student.create({
-      data: {
-        email: 'divya.nair@student.com',
-        password: 'student123',
-        name: 'Divya Nair',
-        phone: '+91 98765 88888',
-        college: 'Anna University',
-        parentContact: '+91 98765 88889',
-        address: '67 Marine Drive, Kochi - 682001',
-        roomId: rooms[2].id,
-        ownerId: owner.id,
-      },
-    }),
-    prisma.student.create({
-      data: {
-        email: 'rohit.verma@student.com',
-        password: 'student123',
-        name: 'Rohit Verma',
-        phone: '+91 98765 99999',
-        college: 'Pune University',
-        parentContact: '+91 98765 99990',
-        address: '90 FC Road, Pune - 411001',
-        roomId: rooms[2].id,
-        ownerId: owner.id,
-      },
-    }),
-    prisma.student.create({
-      data: {
-        email: 'meera.iyer@student.com',
-        password: 'student123',
-        name: 'Meera Iyer',
-        phone: '+91 98765 00001',
-        college: 'IISC Bangalore',
-        parentContact: '+91 98765 00002',
-        address: '12 Cathedral Road, Chennai - 600001',
-        roomId: rooms[3].id,
-        ownerId: owner.id,
-      },
-    }),
-    prisma.student.create({
-      data: {
-        email: 'aditya.joshi@student.com',
-        password: 'student123',
-        name: 'Aditya Joshi',
-        phone: '+91 98765 00003',
-        college: 'IIT Madras',
-        parentContact: '+91 98765 00004',
-        address: '45 Mount Road, Indore - 452001',
-        roomId: rooms[3].id,
-        ownerId: owner.id,
-      },
-    }),
-    prisma.student.create({
-      data: {
-        email: 'kavita.sharma@student.com',
-        password: 'student123',
-        name: 'Kavita Sharma',
-        phone: '+91 98765 00005',
-        college: 'IIT Delhi',
-        parentContact: '+91 98765 00006',
-        address: '78 Ring Road, Jaipur - 302001',
-        roomId: rooms[4].id,
-        ownerId: owner.id,
-      },
-    }),
-    prisma.student.create({
-      data: {
-        email: 'suresh.kumar@student.com',
-        password: 'student123',
-        name: 'Suresh Kumar',
-        phone: '+91 98765 00007',
-        college: 'NIT Trichy',
-        parentContact: '+91 98765 00008',
-        address: '23 Gandhi Road, Madurai - 625001',
-        roomId: rooms[4].id,
-        ownerId: owner.id,
-      },
-    }),
-    prisma.student.create({
-      data: {
-        email: 'neha.kapoor@student.com',
-        password: 'student123',
-        name: 'Neha Kapoor',
-        phone: '+91 98765 00009',
-        college: 'IIM Calcutta',
-        parentContact: '+91 98765 00010',
-        address: '56 Camac Street, Lucknow - 226001',
-        roomId: rooms[5].id,
-        ownerId: owner.id,
-      },
-    }),
-    prisma.student.create({
-      data: {
-        email: 'amit.yadav@student.com',
-        password: 'student123',
-        name: 'Amit Yadav',
-        phone: '+91 98765 00011',
-        college: 'IIIT Hyderabad',
-        parentContact: '+91 98765 00012',
-        address: '89 Banjara Hills, Patna - 800001',
-        roomId: rooms[6].id,
-        ownerId: owner.id,
-      },
-    }),
-  ]);
+  // Create a sample student for seed data (complaints, etc. require a student)
+  const student = await prisma.student.create({
+    data: {
+      email: 'student@example.com',
+      password: 'student123',
+      name: 'Sample Student',
+      ownerId: owner.id,
+      roomId: rooms[0].id,
+    },
+  });
 
-  console.log('Created', students.length, 'students');
+  console.log('Created sample student:', student.email);
 
   // Create Meals for current week
   const today = new Date();
@@ -340,7 +152,7 @@ async function main() {
     ],
   };
 
-  const meals: any[] = [];
+  const meals: Awaited<ReturnType<typeof prisma.meal.create>>[] = [];
   for (let i = 0; i < 7; i++) {
     const date = new Date(today);
     date.setDate(today.getDate() + i);
@@ -362,22 +174,10 @@ async function main() {
 
   console.log('Created', meals.length, 'meals');
 
-  // Create Meal Participations (random)
-  for (const student of students) {
-    for (const meal of meals.slice(0, 9)) { // First 3 days
-      await prisma.mealParticipation.create({
-        data: {
-          studentId: student.id,
-          mealId: meal.id,
-          willAttend: Math.random() > 0.3,
-        },
-      });
-    }
-  }
+  // Note: Meal participations will be created when students register and participate
+  console.log('Skipping meal participations - will be created by students');
 
-  console.log('Created meal participations');
-
-  // Create Complaints
+  // Create Sample Complaints (without student references)
   const complaints = [
     { category: 'Food', title: 'Food Quality Issue', description: 'The dal served yesterday was not cooked properly and had a raw taste.', status: 'Open' },
     { category: 'Electricity', title: 'Power fluctuation', description: 'There is frequent power fluctuation in room 102. It affects my studies.', status: 'Pending' },
@@ -400,7 +200,7 @@ async function main() {
         description: complaint.description,
         status: complaint.status,
         notes: complaint.notes,
-        studentId: students[i % students.length].id,
+        studentId: student.id,
         ownerId: owner.id,
       },
     });
@@ -408,34 +208,8 @@ async function main() {
 
   console.log('Created', complaints.length, 'complaints');
 
-  // Create Fees
-  const feeMonths = ['January 2025', 'February 2025', 'March 2025', 'April 2025'];
-  const feeAmounts = [6500, 5500, 7500, 5000]; // Different room types have different fees
-
-  for (const student of students) {
-    const roomIndex = rooms.findIndex(r => r.id === student.roomId);
-    const feeAmount = feeAmounts[roomIndex % feeAmounts.length];
-
-    for (let i = 0; i < feeMonths.length; i++) {
-      const dueDate = new Date(2025, i, 5); // 5th of each month
-      const status = i < 2 ? 'Paid' : (i === 2 ? 'Pending' : 'Overdue');
-      const paidDate = status === 'Paid' ? new Date(2025, i, 3) : null;
-
-      await prisma.fee.create({
-        data: {
-          amount: feeAmount,
-          dueDate,
-          status,
-          paidDate,
-          month: feeMonths[i],
-          studentId: student.id,
-          ownerId: owner.id,
-        },
-      });
-    }
-  }
-
-  console.log('Created fees for all students');
+  // Note: Fees will be created when students are registered and fees are assigned
+  console.log('Skipping fee creation - fees will be created by owners for registered students');
 
   // Create Expenses
   const expenseCategories = ['Electricity', 'Water', 'Food', 'Maintenance', 'Staff', 'Other'];
@@ -494,12 +268,11 @@ async function main() {
   console.log('\n📊 Summary:');
   console.log(`- Owner: ${owner.email} (password: owner123)`);
   console.log(`- Rooms: ${rooms.length}`);
-  console.log(`- Students: ${students.length}`);
+  console.log(`- Students: 0 (will be created by owners through the app)`);
   console.log(`- Meals: ${meals.length}`);
   console.log(`- Complaints: ${complaints.length}`);
-  console.log('\n📝 Sample Student Login:');
-  console.log(`- Email: ${students[0].email}`);
-  console.log('- Password: student123');
+  console.log('\n📝 Student accounts will be created by hostel owners through the application interface.');
+  console.log('No sample student data is included to maintain privacy and security.');
 }
 
 main()

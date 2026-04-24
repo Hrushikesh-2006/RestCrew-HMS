@@ -2,11 +2,14 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  /* config options here */
-  typescript: {
-    ignoreBuildErrors: true,
+  // swcMinify: false, // Deprecated in Next.js 14+
+  turbopack: {
+    root: process.cwd(),
   },
-  reactStrictMode: false,
+  typescript: {
+    ignoreBuildErrors: false,
+  },
+  reactStrictMode: true,
 };
 
 export default nextConfig;

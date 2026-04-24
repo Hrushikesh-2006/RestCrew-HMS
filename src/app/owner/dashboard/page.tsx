@@ -1,5 +1,8 @@
 'use client';
 
+import { ThemeToggle } from "@/components/theme-toggle";
+
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -9,7 +12,6 @@ import {
   CheckCircle2,
   Clock,
   DollarSign,
-  Layers3,
   Link2,
   Plus,
   TrendingUp,
@@ -18,6 +20,7 @@ import {
 import { useAuthStore } from '@/lib/auth-store';
 import { requestJson } from '@/lib/api-client';
 import { OwnerLayout } from '@/components/owner/owner-sidebar';
+import { AuthGuard } from '@/components/shared/auth-guard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -63,15 +66,11 @@ const emptySummary: OwnerSummary = {
 
 export default function OwnerDashboardPage() {
   const router = useRouter();
-  const { owner, isAuthenticated, userType } = useAuthStore();
+  const { owner } = useAuthStore();
   const [summary, setSummary] = useState<OwnerSummary>(emptySummary);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (!isAuthenticated || userType !== 'owner') {
-      router.push('/owner/login');
-    }
-  }, [isAuthenticated, userType, router]);
+  // Redirection handled by AuthGuard wrapper
 
   useEffect(() => {
     if (!owner?.id) return;
@@ -126,7 +125,8 @@ export default function OwnerDashboardPage() {
   ];
 
   return (
-    <OwnerLayout>
+    <AuthGuard allowedRole="owner">
+      <OwnerLayout>
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -134,6 +134,17 @@ export default function OwnerDashboardPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               {owner.hostelName} is now using shared owner-student database mapping.
             </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="rounded-full border border-border bg-muted px-4 py-2 text-sm text-muted-foreground">
+              {new Date().toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </div>
+            <ThemeToggle />
           </div>
           <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-muted-foreground">
             {new Date().toLocaleDateString('en-US', {
@@ -149,7 +160,7 @@ export default function OwnerDashboardPage() {
           {cards.map((card) => (
             <Card key={card.title} className="glass card-3d-flat overflow-hidden border-white/10">
               <CardContent className="relative p-5">
-                <div className={`absolute inset-0 bg-gradient-to-br ${card.tint}`} />
+                <div className={`absolute inset-0 bg-linear-to-br ${card.tint}`} />
                 <div className="relative z-10 flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm text-muted-foreground">{card.title}</p>
@@ -165,35 +176,7 @@ export default function OwnerDashboardPage() {
           ))}
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-          <Card className="glass border-white/10">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Layers3 className="h-5 w-5 text-teal-300" />
-                Owner To Student Flow
-              </CardTitle>
-              <Badge variant="outline" className="border-teal-500/30 text-teal-300">
-                Live
-              </Badge>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {[
-                'Owner account creates a hostel record in Prisma.',
-                'Owner adds a student from the Student Records page.',
-                'That student is saved with the same owner ID.',
-                'Student signs in with the saved email and password.',
-                'RestCrew resolves the student back to the same hostel platform.',
-              ].map((step, index) => (
-                <div key={step} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-cyan-500 text-sm font-semibold text-white">
-                    {index + 1}
-                  </div>
-                  <p className="text-sm leading-6 text-muted-foreground">{step}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
+        <div className="grid gap-6">
           <Card className="glass border-white/10">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -202,7 +185,7 @@ export default function OwnerDashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button onClick={() => router.push('/owner/students')} className="w-full justify-start bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-600 hover:to-cyan-600">
+              <Button onClick={() => router.push('/owner/students')} className="w-full justify-start bg-linear-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-600 hover:to-cyan-600">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Student Login
               </Button>
@@ -210,9 +193,6 @@ export default function OwnerDashboardPage() {
                 <Building className="mr-2 h-4 w-4" />
                 Manage Rooms
               </Button>
-              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-muted-foreground">
-                Blockchain is not required for login linkage. The reliable path is owner-to-student relational mapping in the database, which is now in place.
-              </div>
             </CardContent>
           </Card>
         </div>
@@ -276,6 +256,7 @@ export default function OwnerDashboardPage() {
           </Card>
         </div>
       </motion.div>
-    </OwnerLayout>
+      </OwnerLayout>
+    </AuthGuard>
   );
 }

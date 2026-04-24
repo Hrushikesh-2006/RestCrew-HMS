@@ -31,3 +31,25 @@ export async function verifyFirebaseIdToken(idToken: string) {
   const app = ensureFirebaseAdmin();
   return getAuth(app).verifyIdToken(idToken);
 }
+
+export async function getServerSession(req?: Request) {
+  if (!req) return null;
+
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) return null;
+
+  const idToken = authHeader.replace('Bearer ', '');
+  if (!idToken) return null;
+
+  try {
+    const decodedToken = await verifyFirebaseIdToken(idToken);
+    return {
+      userId: decodedToken.uid,
+      email: decodedToken.email || '',
+      userType: decodedToken.userType || 'owner', // assume owner for API routes
+    };
+  } catch {
+    return null;
+  }
+}
+

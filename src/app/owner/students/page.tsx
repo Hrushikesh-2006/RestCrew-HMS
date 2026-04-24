@@ -3,16 +3,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Plus, Edit2, Trash2, Search, Phone, Mail, User, Download, Link2, ShieldCheck } from 'lucide-react';
+
+import { Users, Plus, Edit2, Trash2, LogOut, Search, Phone, Mail, User, Download, Link2, ShieldCheck } from 'lucide-react';
+
 import { useAuthStore } from '@/lib/auth-store';
 import { requestJson } from '@/lib/api-client';
+import { AuthGuard } from '@/components/shared/auth-guard';
 import { OwnerLayout } from '@/components/owner/owner-sidebar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 
 type OwnerStudent = {
@@ -29,6 +33,14 @@ type OwnerStudent = {
   ownerId: string;
 };
 
+type HostelRoom = {
+  id: string;
+  roomNumber: string;
+  floor: number;
+  capacity: number;
+  studentCount: number;
+};
+
 const emptyForm = {
   name: '',
   email: '',
@@ -37,14 +49,16 @@ const emptyForm = {
   college: '',
   parentContact: '',
   address: '',
+  roomId: 'unassigned',
 };
 
 export default function OwnerStudentsPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { owner, isAuthenticated, userType } = useAuthStore();
+  const { owner, isAuthenticated, userType, hasHydrated } = useAuthStore();
 
   const [students, setStudents] = useState<OwnerStudent[]>([]);
+  const [rooms, setRooms] = useState<HostelRoom[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<OwnerStudent | null>(null);
@@ -53,10 +67,12 @@ export default function OwnerStudentsPage() {
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
+    if (!hasHydrated) return;
+
     if (!isAuthenticated || userType !== 'owner') {
       router.push('/owner/login');
     }
-  }, [isAuthenticated, userType, router]);
+  }, [hasHydrated, isAuthenticated, userType, router]);
 
   useEffect(() => {
     if (!owner?.id) return;
@@ -80,6 +96,25 @@ export default function OwnerStudentsPage() {
     loadStudents();
   }, [owner?.id, toast]);
 
+  useEffect(() => {
+    if (!owner?.id) return;
+
+    const loadRooms = async () => {
+      try {
+        const response = await requestJson<{ rooms: HostelRoom[] }>(`/api/owner/${owner.id}/rooms`);
+        setRooms(response.rooms);
+      } catch (error) {
+        toast({
+          title: 'Rooms Unavailable',
+          description: error instanceof Error ? error.message : 'Unable to load hostel rooms.',
+          variant: 'destructive',
+        });
+      }
+    };
+
+    loadRooms();
+  }, [owner?.id, toast]);
+
   const filteredStudents = useMemo(
     () =>
       students.filter((student) =>
@@ -91,7 +126,7 @@ export default function OwnerStudentsPage() {
     [searchQuery, students]
   );
 
-  if (!owner) return null;
+  if (!hasHydrated || !owner) return null;
 
   const resetForm = () => {
     setEditingStudent(null);
@@ -108,9 +143,11 @@ export default function OwnerStudentsPage() {
       college: student.college,
       parentContact: student.parentContact,
       address: student.address,
+      roomId: student.roomId ?? 'unassigned',
     });
     setIsDialogOpen(true);
   };
+
 
   const handleDelete = async (student: OwnerStudent) => {
     try {
@@ -131,6 +168,27 @@ export default function OwnerStudentsPage() {
     }
   };
 
+  const handleNotifyLeaving = async (student: OwnerStudent) => {
+    if (!confirm(`Report ${student.name} as leaving the hostel? This creates a notification for owner review.`)) return;
+
+    try {
+      await requestJson(`/api/owner/${owner.id}/students/${student.id}/leaving-notify`, {
+        method: 'POST',
+      });
+      toast({
+        title: 'Leaving Reported',
+        description: `${student.name} leaving notification sent to owner.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Notify Failed',
+        description: error instanceof Error ? error.message : 'Unable to create notification.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -141,7 +199,10 @@ export default function OwnerStudentsPage() {
           `/api/owners/${owner.id}/students/${editingStudent.id}`,
           {
             method: 'PATCH',
-            body: JSON.stringify(form),
+            body: JSON.stringify({
+              ...form,
+              roomId: form.roomId === 'unassigned' ? null : form.roomId,
+            }),
           }
         );
 
@@ -155,7 +216,10 @@ export default function OwnerStudentsPage() {
       } else {
         const response = await requestJson<{ student: OwnerStudent }>(`/api/owners/${owner.id}/students`, {
           method: 'POST',
-          body: JSON.stringify(form),
+          body: JSON.stringify({
+            ...form,
+            roomId: form.roomId === 'unassigned' ? null : form.roomId,
+          }),
         });
 
         setStudents((current) => [response.student, ...current]);
@@ -189,7 +253,7 @@ export default function OwnerStudentsPage() {
     }
 
     const csvContent = [
-      ['Name', 'Email', 'Phone', 'College', 'Parent Contact', 'Address'],
+      ['Name', 'Email', 'Phone', 'College', 'Parent Contact', 'Address', 'Room Number'],
       ...students.map((student) => [
         student.name,
         student.email,
@@ -197,6 +261,7 @@ export default function OwnerStudentsPage() {
         student.college,
         student.parentContact,
         student.address,
+        student.roomNumber ?? 'Unassigned',
       ]),
     ]
       .map((row) => row.map((value) => `"${value ?? ''}"`).join(','))
@@ -217,6 +282,7 @@ export default function OwnerStudentsPage() {
   };
 
   return (
+    <AuthGuard allowedRole="owner">
     <OwnerLayout>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -360,22 +426,33 @@ export default function OwnerStudentsPage() {
                           <User className="h-4 w-4 shrink-0" />
                           <span>{student.parentContact || 'No parent contact added'}</span>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="border-cyan-500/30 text-cyan-300">
+                            {student.roomNumber ? `Room ${student.roomNumber}` : 'Room not assigned'}
+                          </Badge>
+                        </div>
                       </div>
 
                       <div className="mt-4 rounded-2xl border border-white/10 bg-black/10 p-3 text-xs leading-5 text-muted-foreground">
                         Login route: {student.email} is mapped to <span className="text-teal-300">{owner.hostelName}</span>.
                       </div>
 
-                      <div className="mt-4 flex gap-2 border-t border-white/10 pt-4">
-                        <Button size="sm" variant="ghost" onClick={() => handleEdit(student)} className="flex-1 text-teal-300 hover:bg-teal-500/10 hover:text-teal-200">
+
+                      <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-4">
+                        <Button size="sm" variant="ghost" onClick={() => handleEdit(student)} className="text-teal-300 hover:bg-teal-500/10 hover:text-teal-200">
                           <Edit2 className="mr-1 h-4 w-4" />
                           Edit
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => handleDelete(student)} className="flex-1 text-red-300 hover:bg-red-500/10 hover:text-red-200">
+                        <Button size="sm" variant="ghost" onClick={() => handleDelete(student)} className="text-red-300 hover:bg-red-500/10 hover:text-red-200">
                           <Trash2 className="mr-1 h-4 w-4" />
                           Remove
                         </Button>
+<Button size="sm" variant="destructive" onClick={() => handleNotifyLeaving(student)} className="ml-auto text-orange-300 hover:bg-orange-500/10 hover:text-orange-200 text-xs px-3">
+                          <LogOut className="mr-1 h-4 w-4" />
+                          Report Leaving
+                        </Button>
                       </div>
+
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -482,6 +559,26 @@ export default function OwnerStudentsPage() {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <Label>Assign Room</Label>
+              <Select
+                value={form.roomId}
+                onValueChange={(value) => setForm((current) => ({ ...current, roomId: value }))}
+              >
+                <SelectTrigger className="input-dark">
+                  <SelectValue placeholder="Select a room" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Keep unassigned</SelectItem>
+                  {rooms.map((room) => (
+                    <SelectItem key={room.id} value={room.id}>
+                      Room {room.roomNumber} - Floor {room.floor} ({room.studentCount}/{room.capacity})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="rounded-2xl border border-teal-500/20 bg-teal-500/5 px-4 py-3 text-xs leading-5 text-muted-foreground">
               These credentials become the student&apos;s hostel login. Once saved, the student can enter from the student portal using the same email and password.
             </div>
@@ -502,5 +599,6 @@ export default function OwnerStudentsPage() {
         </DialogContent>
       </Dialog>
     </OwnerLayout>
+    </AuthGuard>
   );
 }

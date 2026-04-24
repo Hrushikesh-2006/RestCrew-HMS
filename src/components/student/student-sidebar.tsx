@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/lib/auth-store';
 import { 
   LayoutDashboard, UtensilsCrossed, AlertTriangle, DollarSign,
-  LogOut, Building2, User, Menu, X
+  LogOut, Building2, Menu, X, Bell
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePathname, useRouter } from 'next/navigation';
@@ -22,6 +22,7 @@ const studentNavItems: NavItem[] = [
   { label: 'Meals', icon: UtensilsCrossed, href: '/student/meals', gradient: 'from-green-500 to-emerald-500' },
   { label: 'Complaints', icon: AlertTriangle, href: '/student/complaints', gradient: 'from-red-500 to-rose-500' },
   { label: 'Fees', icon: DollarSign, href: '/student/fees', gradient: 'from-cyan-500 to-blue-500' },
+  { label: 'Notifications', icon: Bell, href: '/student/notifications', gradient: 'from-blue-600 to-cyan-500' },
 ];
 
 export function StudentSidebar() {

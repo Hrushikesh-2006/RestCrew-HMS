@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import {
   TrendingUp,
   DollarSign,
@@ -17,8 +16,10 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
-import { useDataStore } from "@/lib/data-store";
-import { analyzeFinancials, AIAnalysis } from "@/lib/gemini";
+import { generateId, useDataStore } from "@/lib/data-store";
+import { requestJson } from "@/lib/api-client";
+import type { AIAnalysis, FinancialData } from "@/lib/gemini";
+import { AuthGuard } from "@/components/shared/auth-guard";
 import { OwnerLayout } from "@/components/owner/owner-sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -77,14 +78,16 @@ const COLORS = [
 export default function OwnerAnalyticsPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { owner, isAuthenticated, userType } = useAuthStore();
-  const { fees, expenses, investments, addExpense, addInvestment } =
+  const { owner, isAuthenticated, userType, hasHydrated } = useAuthStore();
+  const { fees, expenses, investments, rooms, students, addExpense, addInvestment } =
     useDataStore();
 
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
   const [isInvestmentDialogOpen, setIsInvestmentDialogOpen] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiConfigured, setAiConfigured] = useState(false);
+  const [aiProviderLabel, setAiProviderLabel] = useState<string | null>(null);
 
   // Expense form
   const [expenseCategory, setExpenseCategory] = useState("Food");
@@ -100,12 +103,13 @@ export default function OwnerAnalyticsPage() {
   const [investmentDate, setInvestmentDate] = useState(
     new Date().toLocaleDateString("en-CA"),
   );
-
   useEffect(() => {
+    if (!hasHydrated) return;
+
     if (!isAuthenticated || userType !== "owner") {
       router.push("/owner/login");
     }
-  }, [isAuthenticated, userType, router]);
+  }, [hasHydrated, isAuthenticated, userType, router]);
 
   // Calculate totals
   const totalRevenue = fees
@@ -114,44 +118,111 @@ export default function OwnerAnalyticsPage() {
   const totalExpenses = expenses.reduce((acc, e) => acc + e.amount, 0);
   const totalInvestments = investments.reduce((acc, i) => acc + i.amount, 0);
   const netProfit = totalRevenue - totalExpenses;
+  const paidFeeAmount = fees
+    .filter((f) => f.status === "Paid")
+    .reduce((acc, f) => acc + f.amount, 0);
+  const pendingFeeAmount = fees
+    .filter((f) => f.status === "Pending")
+    .reduce((acc, f) => acc + f.amount, 0);
+  const overdueFeeAmount = fees
+    .filter((f) => f.status === "Overdue")
+    .reduce((acc, f) => acc + f.amount, 0);
+  const paidFeeCount = fees.filter((f) => f.status === "Paid").length;
+  const pendingFeeCount = fees.filter((f) => f.status === "Pending").length;
+  const overdueFeeCount = fees.filter((f) => f.status === "Overdue").length;
+  const totalFeeAmount = paidFeeAmount + pendingFeeAmount + overdueFeeAmount;
+  const collectionRate =
+    totalFeeAmount > 0 ? (paidFeeAmount / totalFeeAmount) * 100 : 0;
+
+  const hasFinancialData = totalRevenue > 0 || totalExpenses > 0;
 
   // Expense breakdown
-  const expenseBreakdown = expenseCategories
-    .map((category, index) => ({
-      name: category,
-      value: expenses
-        .filter((e) => e.category === category)
-        .reduce((acc, e) => acc + e.amount, 0),
-      color: COLORS[index],
-    }))
-    .filter((item) => item.value > 0);
+  const expenseBreakdown = useMemo(
+    () =>
+      expenseCategories
+        .map((category) => ({
+          category,
+          amount: expenses
+            .filter((e) => e.category === category)
+            .reduce((acc, e) => acc + e.amount, 0),
+        }))
+        .filter((item) => item.amount > 0),
+    [expenses],
+  );
 
   // Monthly data
-  const monthlyData = [
-    { month: "Jan", revenue: 0, expenses: 0, profit: 0 },
-    { month: "Feb", revenue: 0, expenses: 0, profit: 0 },
-    { month: "Mar", revenue: 0, expenses: 0, profit: 0 },
-    { month: "Apr", revenue: 0, expenses: 0, profit: 0 },
-    { month: "May", revenue: 0, expenses: 0, profit: 0 },
-    { month: "Jun", revenue: 0, expenses: 0, profit: 0 },
-  ];
+  const monthlyData = useMemo(() => {
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+    const now = new Date();
+    const result = months.map((m, i) => {
+      // Approximate month for extraction
+      const monthIndex = i; // 0-indexed Jan to Jun
+      
+      const monthlyRevenue = fees
+        .filter((f) => {
+          if (f.status !== "Paid" || !f.paidDate) return false;
+          const d = new Date(f.paidDate);
+          return d.getMonth() === monthIndex && d.getFullYear() === now.getFullYear();
+        })
+        .reduce((acc, f) => acc + f.amount, 0);
+
+      const monthlyExpenses = expenses
+        .filter((e) => {
+          const d = new Date(e.date);
+          return d.getMonth() === monthIndex && d.getFullYear() === now.getFullYear();
+        })
+        .reduce((acc, e) => acc + e.amount, 0);
+
+      return {
+        month: m,
+        revenue: monthlyRevenue,
+        expenses: monthlyExpenses,
+        profit: monthlyRevenue - monthlyExpenses,
+      };
+    });
+    return result;
+  }, [fees, expenses]);
+
+  const roomCount = rooms.length;
+  const totalCapacity = rooms.reduce((acc, r) => acc + r.capacity, 0);
+  const occupancyRate = totalCapacity > 0 ? Math.round((students.filter(s => s.roomId).length / totalCapacity) * 100) : 0;
+  const studentCount = useMemo(
+    () => (fees.length > 0 ? new Set(fees.map((f) => f.studentId)).size : 0),
+    [fees],
+  );
 
   // Run AI analysis
   const runAIAnalysis = useCallback(async () => {
     setIsAnalyzing(true);
     try {
-      const analysis = await analyzeFinancials({
+      const payload: FinancialData = {
         totalRevenue,
         totalExpenses,
         netProfit,
-        expensesByCategory: expenseBreakdown.map(e => ({ category: e.name, amount: e.value })),
+        expensesByCategory: expenseBreakdown,
         monthlyData,
-        studentCount:
-          fees.length > 0 ? new Set(fees.map((f) => f.studentId)).size : 0,
-        roomCount: 0,
-        occupancyRate: 0,
+        studentCount,
+        roomCount,
+        occupancyRate,
+        paidFeeAmount,
+        pendingFeeAmount,
+        overdueFeeAmount,
+        paidFeeCount,
+        pendingFeeCount,
+        overdueFeeCount,
+        collectionRate,
+      };
+      const response = await requestJson<{
+        analysis: AIAnalysis;
+        provider: string | null;
+        configured: boolean;
+      }>("/api/analytics/financial-analysis", {
+        method: "POST",
+        body: JSON.stringify(payload),
       });
-      setAiAnalysis(analysis);
+      setAiAnalysis(response.analysis);
+      setAiProviderLabel(response.provider);
+      setAiConfigured(response.configured);
     } catch (error) {
       console.error("Analysis failed:", error);
     } finally {
@@ -162,16 +233,25 @@ export default function OwnerAnalyticsPage() {
     totalExpenses,
     netProfit,
     expenseBreakdown,
-    fees,
     monthlyData,
+    studentCount,
+    roomCount,
+    occupancyRate,
+    paidFeeAmount,
+    pendingFeeAmount,
+    overdueFeeAmount,
+    paidFeeCount,
+    pendingFeeCount,
+    overdueFeeCount,
+    collectionRate,
   ]);
 
   // Auto-run analysis when data changes
   useEffect(() => {
-    if (totalRevenue > 0 || totalExpenses > 0) {
-      runAIAnalysis();
+    if (hasFinancialData) {
+      void runAIAnalysis();
     }
-  }, [totalRevenue, totalExpenses, runAIAnalysis]);
+  }, [hasFinancialData, runAIAnalysis]);
 
   const handleAddExpense = (e: React.FormEvent) => {
     e.preventDefault();
@@ -186,7 +266,7 @@ export default function OwnerAnalyticsPage() {
     }
 
     addExpense({
-      id: `expense_${Date.now()}`,
+      id: generateId("expense"),
       category: expenseCategory,
       description: expenseDescription,
       amount: parseFloat(expenseAmount),
@@ -196,7 +276,7 @@ export default function OwnerAnalyticsPage() {
 
     toast({
       title: "Expense Added",
-      description: `₹${expenseAmount} expense recorded.`,
+      description: `Rs. ${expenseAmount} expense recorded.`,
     });
 
     setIsExpenseDialogOpen(false);
@@ -217,7 +297,7 @@ export default function OwnerAnalyticsPage() {
     }
 
     addInvestment({
-      id: `investment_${Date.now()}`,
+      id: generateId("investment"),
       description: investmentDescription,
       amount: parseFloat(investmentAmount),
       date: investmentDate,
@@ -226,7 +306,7 @@ export default function OwnerAnalyticsPage() {
 
     toast({
       title: "Investment Added",
-      description: `₹${investmentAmount} investment recorded.`,
+      description: `Rs. ${investmentAmount} investment recorded.`,
     });
 
     setIsInvestmentDialogOpen(false);
@@ -234,15 +314,12 @@ export default function OwnerAnalyticsPage() {
     setInvestmentAmount("");
   };
 
-  if (!owner) return null;
+  if (!hasHydrated || !owner) return null;
 
   return (
+    <AuthGuard allowedRole="owner">
     <OwnerLayout>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="space-y-4 lg:space-y-6"
-      >
+      <div className="space-y-4 lg:space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -250,7 +327,9 @@ export default function OwnerAnalyticsPage() {
               Business Analytics
             </h1>
             <p className="text-muted-foreground mt-1 text-sm lg:text-base">
-              AI-powered financial insights for your hostel
+              {aiConfigured
+                ? `${aiProviderLabel ?? "AI"}-powered financial insights for your hostel`
+                : "Financial insights with fallback mode until Gemini or Groq is configured"}
             </p>
           </div>
           <div className="flex gap-3">
@@ -264,7 +343,7 @@ export default function OwnerAnalyticsPage() {
             </Button>
             <Button
               onClick={() => setIsInvestmentDialogOpen(true)}
-              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+              className="bg-linear-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
             >
               <Plus className="w-4 h-4 mr-2" />
               Investment
@@ -313,20 +392,17 @@ export default function OwnerAnalyticsPage() {
               gradient: "from-cyan-500 to-blue-500",
               bg: "from-cyan-500/20 to-blue-500/10",
             },
-          ].map((stat, index) => (
-            <motion.div
+          ].map((stat) => (
+            <div
               key={stat.label}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.1 }}
             >
               <Card
-                className={`glass h-full bg-gradient-to-br ${stat.bg} border-0`}
+                className={`glass h-full bg-linear-to-br ${stat.bg} border-0`}
               >
                 <CardContent className="p-3 lg:p-5">
                   <div className="flex items-start justify-between mb-2">
                     <div
-                      className={`w-9 h-9 lg:w-11 lg:h-11 rounded-xl bg-gradient-to-br ${stat.gradient} flex items-center justify-center shadow-lg`}
+                      className={`w-9 h-9 lg:w-11 lg:h-11 rounded-xl bg-linear-to-br ${stat.gradient} flex items-center justify-center shadow-lg`}
                     >
                       <stat.icon className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
                     </div>
@@ -348,23 +424,20 @@ export default function OwnerAnalyticsPage() {
                   </p>
                 </CardContent>
               </Card>
-            </motion.div>
+            </div>
           ))}
         </div>
 
         {/* AI Analysis Section */}
         {(totalRevenue > 0 || totalExpenses > 0) && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
+          <div>
             <Card className="glass border-purple-500/20 overflow-hidden">
               <CardHeader className="flex flex-row items-center justify-between p-4 lg:p-6">
                 <CardTitle className="flex items-center gap-2 text-base lg:text-lg">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-linear-to-br from-purple-500 to-pink-500 flex items-center justify-center">
                     <Sparkles className="w-4 h-4 text-white" />
                   </div>
-                  AI Financial Analysis
+                  {aiProviderLabel ?? "AI"} Financial Analysis
                 </CardTitle>
                 <Button
                   variant="outline"
@@ -376,7 +449,7 @@ export default function OwnerAnalyticsPage() {
                   <RefreshCw
                     className={`w-4 h-4 mr-1 ${isAnalyzing ? "animate-spin" : ""}`}
                   />
-                  Refresh
+                  {aiConfigured ? "Refresh" : "Refresh Summary"}
                 </Button>
               </CardHeader>
               <CardContent className="p-4 lg:p-6 pt-0">
@@ -456,7 +529,7 @@ export default function OwnerAnalyticsPage() {
                 ) : null}
               </CardContent>
             </Card>
-          </motion.div>
+          </div>
         )}
 
         {/* Empty State */}
@@ -470,12 +543,12 @@ export default function OwnerAnalyticsPage() {
                 No Financial Data Yet
               </h2>
               <p className="text-muted-foreground mb-6 max-w-md mx-auto text-sm lg:text-base">
-                Start tracking your hostel's finances by adding expenses and
+                Start tracking your hostel&apos;s finances by adding expenses and
                 collecting fees from students.
               </p>
               <Button
                 onClick={() => setIsExpenseDialogOpen(true)}
-                className="bg-gradient-to-r from-purple-500 to-pink-500"
+                className="bg-linear-to-r from-purple-500 to-pink-500"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Your First Expense
@@ -579,11 +652,11 @@ export default function OwnerAnalyticsPage() {
                 <CardContent className="p-4 lg:p-6 pt-0">
                   {expenseBreakdown.length > 0 ? (
                     <>
-                      <div className="h-[200px] lg:h-[250px] flex items-center justify-center">
+                      <div className="h-[200px] lg:h-62.5 flex items-center justify-center">
                         <ResponsiveContainer width="100%" height="100%">
                           <RechartsPie>
                             <Pie
-                              data={expenseBreakdown}
+data={expenseBreakdown.map((item, index) => ({ ...item, color: COLORS[index % COLORS.length] }))}
                               cx="50%"
                               cy="50%"
                               innerRadius={50}
@@ -594,7 +667,7 @@ export default function OwnerAnalyticsPage() {
                               {expenseBreakdown.map((entry, index) => (
                                 <Cell
                                   key={`cell-${index}`}
-                                  fill={entry.color}
+                                  fill={COLORS[index % COLORS.length]}
                                 />
                               ))}
                             </Pie>
@@ -603,24 +676,24 @@ export default function OwnerAnalyticsPage() {
                         </ResponsiveContainer>
                       </div>
                       <div className="flex flex-wrap justify-center gap-3 mt-4">
-                        {expenseBreakdown.map((item) => (
+{expenseBreakdown.map((item, index) => (
                           <div
-                            key={item.name}
+                            key={item.category}
                             className="flex items-center gap-2"
                           >
                             <div
                               className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: item.color }}
+                              style={{ backgroundColor: COLORS[index % COLORS.length] }}
                             />
                             <span className="text-xs text-muted-foreground">
-                              {item.name}
+                              {item.category}
                             </span>
                           </div>
                         ))}
                       </div>
                     </>
                   ) : (
-                    <div className="h-[200px] lg:h-[250px] flex items-center justify-center">
+                    <div className="h-[200px] lg:h-62.5 flex items-center justify-center">
                       <div className="text-center">
                         <PieChart className="w-12 h-12 mx-auto text-muted-foreground/50 mb-2" />
                         <p className="text-sm text-muted-foreground">
@@ -642,7 +715,7 @@ export default function OwnerAnalyticsPage() {
               <CardContent className="p-0">
                 {expenses.length > 0 ? (
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[500px]">
+                    <table className="w-full min-w-125">
                       <thead>
                         <tr className="border-b border-border/30 bg-slate-800/50">
                           <th className="text-left p-3 lg:p-4 text-xs lg:text-sm text-muted-foreground font-medium">
@@ -753,7 +826,7 @@ export default function OwnerAnalyticsPage() {
             </Card>
           </TabsContent>
         </Tabs>
-      </motion.div>
+      </div>
 
       {/* Add Expense Dialog */}
       <Dialog open={isExpenseDialogOpen} onOpenChange={setIsExpenseDialogOpen}>
@@ -825,7 +898,7 @@ export default function OwnerAnalyticsPage() {
               </Button>
               <Button
                 type="submit"
-                className="flex-1 bg-gradient-to-r from-red-500 to-rose-500"
+                className="flex-1 bg-linear-to-r from-red-500 to-rose-500"
               >
                 Add Expense
               </Button>
@@ -898,5 +971,6 @@ export default function OwnerAnalyticsPage() {
         </DialogContent>
       </Dialog>
     </OwnerLayout>
+    </AuthGuard>
   );
 }

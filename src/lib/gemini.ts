@@ -1,6 +1,88 @@
-const GEMINI_API_KEY = "AIzaSyCAoOOZlvRK2JefJcQNtVszZrfb_GdT1Tw";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
+const GROQ_API_KEY = process.env.GROQ_API_KEY ?? "";
 const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const AI_TIMEOUT_MS = 12000;
+
+export function isGeminiConfigured() {
+  return Boolean(GEMINI_API_KEY || GROQ_API_KEY);
+}
+
+export function getAIProviderLabel() {
+  if (GROQ_API_KEY) {
+    return "Groq";
+  }
+
+  if (GEMINI_API_KEY) {
+    return "Gemini";
+  }
+
+  return null;
+}
+
+async function fetchAI(
+  prompt: string,
+  maxOutputTokens: number,
+  temperature: number,
+) {
+  if (!GROQ_API_KEY && !GEMINI_API_KEY) {
+    throw new Error("AI_NOT_CONFIGURED");
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+
+  try {
+    if (GROQ_API_KEY) {
+      return await fetch(GROQ_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${GROQ_API_KEY}`,
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: "llama-3.1-8b-instant",
+          temperature,
+          max_tokens: maxOutputTokens,
+          messages: [{ role: "user", content: prompt }],
+        }),
+      });
+    }
+
+    return await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }],
+          },
+        ],
+        generationConfig: {
+          temperature,
+          maxOutputTokens,
+        },
+      }),
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function extractResponseText(response: Response) {
+  const result = await response.json();
+
+  if (GROQ_API_KEY) {
+    return result.choices?.[0]?.message?.content ?? "";
+  }
+
+  return result.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+}
 
 export interface FinancialData {
   totalRevenue: number;
@@ -11,6 +93,13 @@ export interface FinancialData {
   studentCount: number;
   roomCount: number;
   occupancyRate: number;
+  paidFeeAmount?: number;
+  pendingFeeAmount?: number;
+  overdueFeeAmount?: number;
+  paidFeeCount?: number;
+  pendingFeeCount?: number;
+  overdueFeeCount?: number;
+  collectionRate?: number;
 }
 
 export interface AIAnalysis {
@@ -20,103 +109,87 @@ export interface AIAnalysis {
   warnings: string[];
 }
 
+function buildFallbackAnalysis(data: FinancialData): AIAnalysis {
+  return {
+    summary: isGeminiConfigured()
+      ? "AI analysis is temporarily unavailable. Please try again later."
+      : "AI analysis is unavailable because no Gemini or Groq API key is configured.",
+    insights: [
+      `Current net profit is Rs. ${data.netProfit.toLocaleString()}.`,
+      `Fee collection rate is ${(data.collectionRate ?? 0).toFixed(1)}%.`,
+      `Pending plus overdue payments total Rs. ${((data.pendingFeeAmount ?? 0) + (data.overdueFeeAmount ?? 0)).toLocaleString()}.`,
+    ],
+    recommendations: [
+      "Follow up with students who have pending or overdue fees.",
+      "Review expense categories to identify cost-cutting opportunities.",
+      "Improve room occupancy to strengthen recurring revenue.",
+    ],
+    warnings:
+      data.netProfit < 0
+        ? ["Expenses currently exceed collected revenue."]
+        : (data.overdueFeeCount ?? 0) > 0
+          ? [`${data.overdueFeeCount} overdue payment(s) need attention.`]
+          : [],
+  };
+}
+
 export async function analyzeFinancials(
   data: FinancialData,
 ): Promise<AIAnalysis> {
   const prompt = `
-You are a financial analyst for a hostel management business. Analyze the following financial data and provide insights.
+You are a financial analyst for a hostel management business. Analyze the following financial and payment data and provide insights.
 
 Financial Summary:
-- Total Revenue: ₹${data.totalRevenue.toLocaleString()}
-- Total Expenses: ₹${data.totalExpenses.toLocaleString()}
-- Net Profit: ₹${data.netProfit.toLocaleString()}
+- Total Revenue: Rs. ${data.totalRevenue.toLocaleString()}
+- Total Expenses: Rs. ${data.totalExpenses.toLocaleString()}
+- Net Profit: Rs. ${data.netProfit.toLocaleString()}
 - Number of Students: ${data.studentCount}
 - Number of Rooms: ${data.roomCount}
 - Occupancy Rate: ${data.occupancyRate}%
+- Fee Collection Rate: ${(data.collectionRate ?? 0).toFixed(1)}%
+
+Payment Analysis:
+- Paid Fees: ${data.paidFeeCount ?? 0} payment(s) worth Rs. ${(data.paidFeeAmount ?? 0).toLocaleString()}
+- Pending Fees: ${data.pendingFeeCount ?? 0} payment(s) worth Rs. ${(data.pendingFeeAmount ?? 0).toLocaleString()}
+- Overdue Fees: ${data.overdueFeeCount ?? 0} payment(s) worth Rs. ${(data.overdueFeeAmount ?? 0).toLocaleString()}
 
 Expenses by Category:
-${data.expensesByCategory.map((e) => `- ${e.category}: ₹${e.amount.toLocaleString()}`).join("\n")}
+${data.expensesByCategory.map((e) => `- ${e.category}: Rs. ${e.amount.toLocaleString()}`).join("\n")}
 
 Monthly Performance:
-${data.monthlyData.map((m) => `- ${m.month}: Revenue ₹${m.revenue.toLocaleString()}, Expenses ₹${m.expenses.toLocaleString()}`).join("\n")}
+${data.monthlyData.map((m) => `- ${m.month}: Revenue Rs. ${m.revenue.toLocaleString()}, Expenses Rs. ${m.expenses.toLocaleString()}`).join("\n")}
 
-Please provide a comprehensive analysis in the following JSON format:
+Return valid JSON only in this shape:
 {
-  "summary": "A 2-3 sentence overall summary of the financial health",
+  "summary": "A concise 2-3 sentence summary",
   "insights": ["Insight 1", "Insight 2", "Insight 3"],
   "recommendations": ["Recommendation 1", "Recommendation 2", "Recommendation 3"],
-  "warnings": ["Warning 1 if any concerns, or empty array if no warnings"]
+  "warnings": ["Warning 1"]
 }
-
-Only return valid JSON, no markdown formatting.
 `;
 
   try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: prompt,
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 1024,
-        },
-      }),
-    });
+    const response = await fetchAI(prompt, 1024, 0.7);
 
     if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`);
+      throw new Error(`AI provider error: ${response.status}`);
     }
 
-    const result = await response.json();
-    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-    // Clean up markdown code blocks if present
+    const text = await extractResponseText(response);
     const cleanText = text.replace(/```json\n?|\n?```/g, "").trim();
-
-    // Parse JSON from response
     const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
+
+    if (!jsonMatch) {
+      return buildFallbackAnalysis(data);
     }
 
-    // Fallback if parsing fails
-    return {
-      summary: "Unable to generate AI analysis at this time.",
-      insights: ["Check your internet connection and try again."],
-      recommendations: ["Ensure all financial data is up to date."],
-      warnings: [],
-    };
+    return JSON.parse(jsonMatch[0]) as AIAnalysis;
   } catch (error) {
-    console.error("Gemini API Error:", error);
-    return {
-      summary:
-        "AI analysis is temporarily unavailable. Please try again later.",
-      insights: [
-        `Your current net profit is ₹${data.netProfit.toLocaleString()}`,
-        `Revenue to expense ratio: ${data.totalExpenses > 0 ? ((data.totalRevenue / data.totalExpenses) * 100).toFixed(1) : 0}%`,
-        `Occupancy rate: ${data.occupancyRate}%`,
-      ],
-      recommendations: [
-        "Review expense categories to identify cost-cutting opportunities",
-        "Focus on increasing occupancy rate for better revenue",
-        "Regularly update fee collection to improve cash flow",
-      ],
-      warnings:
-        data.netProfit < 0
-          ? ["Your expenses exceed revenue. Immediate attention required."]
-          : [],
-    };
+    if (error instanceof Error && error.message !== "AI_NOT_CONFIGURED") {
+      console.error("AI Analysis Error:", error);
+    }
+
+    return buildFallbackAnalysis(data);
   }
 }
 
@@ -125,54 +198,30 @@ export async function getInvestmentAdvice(
   investmentDescription: string,
 ): Promise<string> {
   const prompt = `
-You are a financial advisor for a hostel business. The business has the following financial status:
+You are a financial advisor for a hostel business.
 
-- Monthly Revenue: ₹${data.totalRevenue.toLocaleString()}
-- Monthly Expenses: ₹${data.totalExpenses.toLocaleString()}
-- Net Profit: ₹${data.netProfit.toLocaleString()}
-- Students: ${data.studentCount}
-- Rooms: ${data.roomCount}
+Financial Summary:
+- Revenue: Rs. ${data.totalRevenue.toLocaleString()}
+- Expenses: Rs. ${data.totalExpenses.toLocaleString()}
+- Net Profit: Rs. ${data.netProfit.toLocaleString()}
+- Collection Rate: ${(data.collectionRate ?? 0).toFixed(1)}%
 
-The owner is considering an investment: "${investmentDescription}"
+The owner is considering: "${investmentDescription}"
 
-Provide a brief analysis (3-4 sentences) on whether this is a good investment considering the current financial status.
-Focus on ROI potential and impact on the business.
+Give a short 3-4 sentence recommendation focused on ROI and cash-flow impact.
 `;
 
   try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: prompt,
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 256,
-        },
-      }),
-    });
+    const response = await fetchAI(prompt, 256, 0.7);
 
     if (!response.ok) {
-      return "Unable to analyze investment at this time. Please review your financial capacity before proceeding.";
+      return "Unable to analyze investment at this time. Please review cash flow before proceeding.";
     }
 
-    const result = await response.json();
-    return (
-      result.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "Analysis unavailable."
-    );
-  } catch (error) {
-    return "Investment analysis temporarily unavailable. Consider your current cash flow and ROI timeline before proceeding.";
+    const text = await extractResponseText(response);
+    return text || "Analysis unavailable.";
+  } catch {
+    return "Investment analysis temporarily unavailable. Consider current cash flow and ROI timeline before proceeding.";
   }
 }
 
@@ -180,54 +229,29 @@ export async function generateFinancialReport(
   data: FinancialData,
 ): Promise<string> {
   const prompt = `
-Generate a professional monthly financial report for a hostel business with the following data:
+Generate a short professional monthly report for a hostel business using this data:
 
-Financial Summary:
-- Total Revenue: ₹${data.totalRevenue.toLocaleString()}
-- Total Expenses: ₹${data.totalExpenses.toLocaleString()}
-- Net Profit: ₹${data.netProfit.toLocaleString()}
+- Revenue: Rs. ${data.totalRevenue.toLocaleString()}
+- Expenses: Rs. ${data.totalExpenses.toLocaleString()}
+- Net Profit: Rs. ${data.netProfit.toLocaleString()}
 - Occupancy Rate: ${data.occupancyRate}%
+- Collection Rate: ${(data.collectionRate ?? 0).toFixed(1)}%
 - Students: ${data.studentCount}
 
-Expenses Breakdown:
-${data.expensesByCategory.map((e) => `- ${e.category}: ₹${e.amount.toLocaleString()}`).join("\n")}
-
-Generate a brief professional report in 4-5 sentences highlighting key financial metrics and business health.
+Expenses by Category:
+${data.expensesByCategory.map((e) => `- ${e.category}: Rs. ${e.amount.toLocaleString()}`).join("\n")}
 `;
 
   try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: prompt,
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.6,
-          maxOutputTokens: 512,
-        },
-      }),
-    });
+    const response = await fetchAI(prompt, 512, 0.6);
 
     if (!response.ok) {
-      return `Monthly Report: Revenue ₹${data.totalRevenue.toLocaleString()}, Expenses ₹${data.totalExpenses.toLocaleString()}, Net Profit ₹${data.netProfit.toLocaleString()}`;
+      return `Monthly Report: Revenue Rs. ${data.totalRevenue.toLocaleString()}, Expenses Rs. ${data.totalExpenses.toLocaleString()}, Net Profit Rs. ${data.netProfit.toLocaleString()}.`;
     }
 
-    const result = await response.json();
-    return (
-      result.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "Report generation failed."
-    );
-  } catch (error) {
-    return `Financial Summary: Revenue ₹${data.totalRevenue.toLocaleString()}, Expenses ₹${data.totalExpenses.toLocaleString()}, Profit ₹${data.netProfit.toLocaleString()}`;
+    const text = await extractResponseText(response);
+    return text || "Report generation failed.";
+  } catch {
+    return `Financial Summary: Revenue Rs. ${data.totalRevenue.toLocaleString()}, Expenses Rs. ${data.totalExpenses.toLocaleString()}, Profit Rs. ${data.netProfit.toLocaleString()}.`;
   }
 }

@@ -35,7 +35,11 @@ interface AuthState {
   loginOwner: (owner: Owner) => void;
   loginStudent: (student: Student) => void;
   logout: () => void;
+  updateOwner: (data: Partial<Owner>) => void;
+  updateStudent: (data: Partial<Student>) => void;
   updateStudentRoom: (roomId: string | undefined, roomNumber: string | undefined) => void;
+  hasHydrated: boolean;
+  setHasHydrated: (val: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -45,6 +49,7 @@ export const useAuthStore = create<AuthState>()(
       student: null,
       isAuthenticated: false,
       userType: null,
+      hasHydrated: false,
       
       loginOwner: (owner) => set({
         owner,
@@ -66,6 +71,14 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: false,
         userType: null,
       }),
+
+      updateOwner: (data) => set((state) => ({
+        owner: state.owner ? { ...state.owner, ...data } : null
+      })),
+
+      updateStudent: (data) => set((state) => ({
+        student: state.student ? { ...state.student, ...data } : null
+      })),
       
       updateStudentRoom: (roomId, roomNumber) => set((state) => ({
         student: state.student ? {
@@ -74,10 +87,15 @@ export const useAuthStore = create<AuthState>()(
           roomNumber,
         } : null,
       })),
+
+      setHasHydrated: (val) => set({ hasHydrated: val }),
     }),
     {
       name: 'restcrew-auth-storage',
       storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
       partialize: (state) => ({
         owner: state.owner,
         student: state.student,

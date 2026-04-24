@@ -5,14 +5,13 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
   DollarSign, Calendar, CheckCircle2, Clock, AlertCircle,
-  Download, CreditCard
+  CreditCard
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth-store';
 import { useDataStore } from '@/lib/data-store';
 import { StudentLayout } from '@/components/student/student-sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
 export default function StudentFeesPage() {

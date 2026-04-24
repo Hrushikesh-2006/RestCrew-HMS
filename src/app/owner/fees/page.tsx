@@ -3,16 +3,17 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
   DollarSign, Plus, Check, Clock, AlertCircle, Send,
   Search, Download, Calendar, Sparkles
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth-store';
-import { useDataStore, Fee } from '@/lib/data-store';
+import { useDataStore, Fee, generateId } from '@/lib/data-store';
+import { requestJson } from '@/lib/api-client';
+import { AuthGuard } from '@/components/shared/auth-guard';
 import { OwnerLayout } from '@/components/owner/owner-sidebar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -22,8 +23,20 @@ import { useToast } from '@/hooks/use-toast';
 export default function OwnerFeesPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { owner, isAuthenticated, userType } = useAuthStore();
-  const { fees, students, addFee, updateFee } = useDataStore();
+  const { owner, isAuthenticated, userType, hasHydrated } = useAuthStore();
+  const { fees, addFee, updateFee, addReminder } = useDataStore();
+  const [students, setStudents] = useState<Array<{
+    id: string;
+    email: string;
+    name: string;
+    phone: string;
+    college: string;
+    parentContact: string;
+    address: string;
+    roomId: string | null;
+    roomNumber?: string;
+    ownerId: string;
+  }>>([]);
   
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,12 +49,47 @@ export default function OwnerFeesPage() {
   const [month, setMonth] = useState('');
 
   useEffect(() => {
+    if (!hasHydrated) return;
+
     if (!isAuthenticated || userType !== 'owner') {
       router.push('/owner/login');
     }
-  }, [isAuthenticated, userType, router]);
+  }, [hasHydrated, isAuthenticated, userType, router]);
 
-  if (!owner) return null;
+  useEffect(() => {
+    if (!owner?.id) return;
+
+    const loadStudents = async () => {
+      try {
+        const response = await requestJson<{
+          students: Array<{
+            id: string;
+            email: string;
+            name: string;
+            phone: string;
+            college: string;
+            parentContact: string;
+            address: string;
+            roomId: string | null;
+            roomNumber?: string;
+            ownerId: string;
+          }>;
+        }>(`/api/owners/${owner.id}/students`);
+
+        setStudents(response.students ?? []);
+      } catch (error) {
+        toast({
+          title: 'Load Failed',
+          description: error instanceof Error ? error.message : 'Unable to load students.',
+          variant: 'destructive',
+        });
+      }
+    };
+
+    void loadStudents();
+  }, [owner?.id, toast]);
+
+  if (!hasHydrated || !owner) return null;
 
   const filteredFees = fees.filter(fee => {
     if (statusFilter !== 'all' && fee.status !== statusFilter) return false;
@@ -57,15 +105,6 @@ export default function OwnerFeesPage() {
   const paidCount = fees.filter(f => f.status === 'Paid').length;
   const pendingCount = fees.filter(f => f.status === 'Pending').length;
   const overdueCount = fees.filter(f => f.status === 'Overdue').length;
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'Paid': return <Check className="w-4 h-4" />;
-      case 'Pending': return <Clock className="w-4 h-4" />;
-      case 'Overdue': return <AlertCircle className="w-4 h-4" />;
-      default: return null;
-    }
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -95,61 +134,143 @@ export default function OwnerFeesPage() {
     });
   };
 
-  const handleSendReminder = (fee: Fee) => {
-    const student = students.find(s => s.id === fee.studentId);
-    if (!student) return;
-    
+    const handleSendReminder = async (fee: Fee) => {
+      const student = students.find(s => s.id === fee.studentId);
+      if (!student) return;
+      
+      // Update local store for legacy support
+      addReminder({
+        id: generateId('rem'),
+        studentId: student.id,
+        studentEmail: student.email,
+        studentName: student.name,
+        feeId: fee.id,
+        amount: fee.amount,
+        dueDate: fee.dueDate,
+        sent: true,
+        sentAt: new Date().toISOString(),
+        ownerEmail: owner.email,
+      });
+
+      // Send Persistent Database Notification
+      try {
+        await fetch('/api/notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentIds: [student.id],
+            ownerId: owner.id,
+            type: 'Payment',
+            title: 'Payment Reminder',
+            message: `Reminder: Your fee of ₹${fee.amount} for ${fee.month} is ${fee.status}. Due date: ${new Date(fee.dueDate).toLocaleDateString()}.`,
+          }),
+        });
+      } catch (error) {
+        console.error('Failed to send DB notification:', error);
+      }
+      
+      toast({
+        title: 'Reminder Sent',
+        description: `Fee reminder sent to ${fee.studentName}`,
+      });
+    };
+
+  const handleRemindAllOverdue = () => {
+    const overdueList = fees.filter(f => f.status === 'Overdue');
+    if (overdueList.length === 0) {
+      toast({
+        title: 'No Overdue Fees',
+        description: 'There are no students with overdue fees to remind.',
+      });
+      return;
+    }
+
+    overdueList.forEach(fee => {
+      const student = students.find(s => s.id === fee.studentId);
+      if (student) {
+        addReminder({
+          id: generateId('rem'),
+          studentId: student.id,
+          studentEmail: student.email,
+          studentName: student.name,
+          feeId: fee.id,
+          amount: fee.amount,
+          dueDate: fee.dueDate,
+          sent: true,
+          sentAt: new Date().toISOString(),
+          ownerEmail: owner.email,
+        });
+      }
+    });
+
     toast({
-      title: 'Reminder Sent',
-      description: `Fee reminder sent to ${fee.studentName} at ${student.email}`,
+      title: 'Reminders Sent',
+      description: `Sent reminders to ${overdueList.length} students with overdue fees.`,
     });
   };
 
-  const handleAddFee = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!amount || parseFloat(amount) <= 0) {
-      toast({
-        title: 'Error',
-        description: 'Please enter a valid amount',
-        variant: 'destructive',
+    const handleAddFee = async (e: React.FormEvent) => {
+      e.preventDefault();
+      
+      if (!amount || parseFloat(amount) <= 0) {
+        toast({
+          title: 'Error',
+          description: 'Please enter a valid amount',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      const student = students.find(s => s.id === studentId);
+      if (!student) {
+        toast({
+          title: 'Error',
+          description: 'Please select a student.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      addFee({
+        id: generateId('fee'),
+        amount: parseFloat(amount),
+        dueDate,
+        status: 'Pending',
+        paidDate: null,
+        month,
+        studentId: student.id,
+        studentName: student.name,
+        ownerEmail: owner.email,
       });
-      return;
-    }
-    
-    const student = students.find(s => s.id === studentId);
-    if (!student) {
+
+      // Send Persistent Database Notification
+      try {
+        await fetch('/api/notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentIds: [student.id],
+            ownerId: owner.id,
+            type: 'Payment',
+            title: 'New Fee Added',
+            message: `A new fee of ₹${amount} has been added for ${month}. Please pay before ${new Date(dueDate).toLocaleDateString()}.`,
+          }),
+        });
+      } catch (error) {
+        console.error('Failed to send DB notification:', error);
+      }
+      
       toast({
-        title: 'Error',
-        description: 'Please select a student.',
-        variant: 'destructive',
+        title: 'Fee Added',
+        description: `Fee of ₹${amount} added for ${student.name}`,
       });
-      return;
-    }
-    
-    addFee({
-      id: `fee_${Date.now()}`,
-      amount: parseFloat(amount),
-      dueDate,
-      status: 'Pending',
-      paidDate: null,
-      month,
-      studentId: student.id,
-      studentName: student.name,
-      ownerEmail: owner.email,
-    });
-    
-    toast({
-      title: 'Fee Added',
-      description: `Fee of ₹${amount} added for ${student.name}`,
-    });
-    
-    setIsDialogOpen(false);
-    setStudentId('');
-    setAmount('');
-    setDueDate('');
-    setMonth('');
-  };
+      
+      setIsDialogOpen(false);
+      setStudentId('');
+      setAmount('');
+      setDueDate('');
+      setMonth('');
+    };
 
   const exportData = () => {
     if (fees.length === 0) {
@@ -188,6 +309,7 @@ export default function OwnerFeesPage() {
   };
 
   return (
+    <AuthGuard allowedRole="owner">
     <OwnerLayout>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -219,6 +341,16 @@ export default function OwnerFeesPage() {
               <span className="hidden sm:inline">Add Fee</span>
               <span className="sm:hidden">Add</span>
             </Button>
+            {overdueCount > 0 && (
+              <Button
+                onClick={handleRemindAllOverdue}
+                className="bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20"
+              >
+                <Send className="w-4 h-4 mr-1 lg:mr-2" />
+                <span className="hidden sm:inline">Remind All Overdue</span>
+                <span className="sm:hidden">Remind All</span>
+              </Button>
+            )}
           </div>
         </div>
 
@@ -503,5 +635,6 @@ export default function OwnerFeesPage() {
         </DialogContent>
       </Dialog>
     </OwnerLayout>
+    </AuthGuard>
   );
 }

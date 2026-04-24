@@ -110,6 +110,7 @@ export interface Reminder {
   sent: boolean;
   sentAt: string | null;
   ownerEmail: string;
+  message?: string;
 }
 
 interface DataStore {
@@ -124,7 +125,10 @@ interface DataStore {
   investments: Investment[];
   reminders: Reminder[];
   
+  lastAutomatedReminderDate: string | null;
+  
   addOwner: (owner: OwnerData) => void;
+  updateOwnerData: (email: string, data: Partial<OwnerData>) => void;
   addStudent: (student: StudentData) => void;
   updateStudent: (id: string, data: Partial<StudentData>) => void;
   deleteStudent: (id: string) => void;
@@ -139,13 +143,20 @@ interface DataStore {
   updateComplaint: (id: string, data: Partial<Complaint>) => void;
   addFee: (fee: Fee) => void;
   updateFee: (id: string, data: Partial<Fee>) => void;
+  updateFeeStatuses: () => void;
   addExpense: (expense: Expense) => void;
   addInvestment: (investment: Investment) => void;
   addReminder: (reminder: Reminder) => void;
+  setLastAutomatedReminderDate: (date: string) => void;
+  addReminderToAllActiveStudents: (ownerEmail: string, reminderData: { amount: number; dueDate: string }) => void;
+  addNotificationToAllStudents: (ownerEmail: string, message: { title: string; description: string }) => void;
   clearAllData: () => void;
 }
 
-const generateId = () => Math.random().toString(36).substring(2, 11);
+export const generateId = (prefix?: string) => {
+  const id = Math.random().toString(36).substring(2, 11);
+  return prefix ? `${prefix}_${id}` : id;
+};
 
 // Empty initial state - ALL data must be entered manually
 const emptyState = {
@@ -159,6 +170,7 @@ const emptyState = {
   expenses: [],
   investments: [],
   reminders: [],
+  lastAutomatedReminderDate: null,
 };
 
 export const useDataStore = create<DataStore>()(
@@ -167,6 +179,10 @@ export const useDataStore = create<DataStore>()(
       ...emptyState,
       
       addOwner: (owner) => set((state) => ({ owners: [...state.owners, owner] })),
+      
+      updateOwnerData: (email, data) => set((state) => ({
+        owners: state.owners.map(o => o.email === email ? { ...o, ...data } : o)
+      })),
       
       addStudent: (student) => set((state) => ({ students: [...state.students, student] })),
       
@@ -221,12 +237,62 @@ export const useDataStore = create<DataStore>()(
       updateFee: (id, data) => set((state) => ({
         fees: state.fees.map(f => f.id === id ? { ...f, ...data } : f)
       })),
-      
+
+      updateFeeStatuses: () => set((state) => {
+        const now = new Date().toISOString().split('T')[0];
+        const updatedFees = state.fees.map(fee => {
+          if (fee.status === 'Pending' && fee.dueDate < now) {
+            return { ...fee, status: 'Overdue' as FeeStatus };
+          }
+          return fee;
+        });
+        return { fees: updatedFees };
+      }),
+
       addExpense: (expense) => set((state) => ({ expenses: [...state.expenses, expense] })),
       
       addInvestment: (investment) => set((state) => ({ investments: [...state.investments, investment] })),
       
       addReminder: (reminder) => set((state) => ({ reminders: [...state.reminders, reminder] })),
+      
+      setLastAutomatedReminderDate: (date) => set({ lastAutomatedReminderDate: date }),
+      
+      addReminderToAllActiveStudents: (ownerEmail, reminderData) => set((state) => {
+        const newReminders: Reminder[] = state.students
+          .filter(s => s.ownerEmail === ownerEmail)
+          .map(student => ({
+            id: generateId('rem'),
+            studentId: student.id,
+            studentEmail: student.email,
+            studentName: student.name,
+            feeId: 'bulk',
+            amount: reminderData.amount,
+            dueDate: reminderData.dueDate,
+            sent: true,
+            sentAt: new Date().toISOString(),
+            ownerEmail,
+          }));
+        return { reminders: [...state.reminders, ...newReminders] };
+      }),
+      
+      addNotificationToAllStudents: (ownerEmail, message) => set((state) => {
+        const newReminders: Reminder[] = state.students
+          .filter(s => s.ownerEmail === ownerEmail)
+          .map(student => ({
+            id: generateId('notif'),
+            studentId: student.id,
+            studentEmail: student.email,
+            studentName: student.name,
+            feeId: 'notification',
+            amount: 0,
+            dueDate: new Date().toISOString().split('T')[0],
+            sent: true,
+            sentAt: new Date().toISOString(),
+            ownerEmail,
+            message: message.description, // I'll add this field to Reminder or just use amount=0 to signal it's a notification
+          }));
+        return { reminders: [...state.reminders, ...newReminders] };
+      }),
       
       clearAllData: () => set(emptyState),
     }),
@@ -244,10 +310,8 @@ export const useDataStore = create<DataStore>()(
         expenses: state.expenses,
         investments: state.investments,
         reminders: state.reminders,
+        lastAutomatedReminderDate: state.lastAutomatedReminderDate,
       }),
     }
   )
 );
-
-// Generate ID helper
-export { generateId };

@@ -20,12 +20,22 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+.codex-*.log
 dev.log
 server.log
 eslint_output*.txt
 tsc_output*.txt
+lint_output*.txt
+final_report*.txt
 vercel_out.txt
+vercel_deployments.txt
 
 # local env files
 .env*.local
 .env
+.env.production
+.env.vercel
+.vercel
+
+# YoYo AI version control directory
+.yoyo/

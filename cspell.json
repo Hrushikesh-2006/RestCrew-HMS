@@ -1,22 +1,60 @@
-﻿{
-    "version":  "0.2",
-    "words":  [
-                  "glassmorphism",
-                  "RestCrew",
-                  "mdxeditor",
-                  "cmdk",
-                  "Permissioned",
-                  "reactuses",
-                  "vaul"
-              ],
-    "ignorePaths":  [
-                        "bun.lock",
-                        "package-lock.json",
-                        "node_modules/**",
-                        ".next/**"
-                    ],
-    "ignoreRegExpList":  [
-                             "\\b[a-z]+:\\w+(?:-\\w+)*-\\[[^\\]]+\\]",
-                             "\\b[a-z]+-\\[[^\\]]+\\]"
-                         ]
+{
+    "version": "0.2",
+    "words": [
+        "Aditya",
+        "Amit",
+        "Ananya",
+        "Arjun",
+        "BITS",
+        "cmdk",
+        "Divya",
+        "glassmorphism",
+        "IIIT",
+        "IIM",
+        "IISC",
+        "IIT",
+        "Jadavpur",
+        "Joshi",
+        "Karan",
+        "Kavita",
+        "Kumar",
+        "mdxeditor",
+        "Meera",
+        "Mehta",
+        "Nair",
+        "Neha",
+        "NIT",
+        "nums",
+        "Participations",
+        "Permissioned",
+        "Priya",
+        "Rahul",
+        "Rajesh",
+        "reactuses",
+        "Reddy",
+        "RestCrew",
+        "Rohit",
+        "Roti",
+        "Roy",
+        "Sharma",
+        "Singh",
+        "Sneha",
+        "Suresh",
+        "Trichy",
+        "vaul",
+        "Verma",
+        "Vikram",
+        "VIT",
+        "Yadav"
+    ],
+    "ignorePaths": [
+        "bun.lock",
+        "package-lock.json",
+        "node_modules/**",
+        ".next/**"
+    ],
+    "ignoreRegExpList": [
+        "\\b[a-z]+:\\w+(?:-\\w+)*-\\[[^\\]]+\\]",
+        "\\b[a-z]+-\\[[^\\]]+\\]"
+    ]
 }

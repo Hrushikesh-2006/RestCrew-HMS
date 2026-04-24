@@ -5,12 +5,13 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   DoorOpen, Plus, Users, Edit2, Trash2, Grid, List, 
-  Wifi, Wind, Bath, BookOpen, Sun, Check
+  Wifi, Wind, Bath, BookOpen, Sun, Check, X
 } from 'lucide-react';
+
 import { useAuthStore } from '@/lib/auth-store';
-import { useDataStore, Room } from '@/lib/data-store';
+import type { ApiRoom, ApiStudent } from '@/types/index';
 import { OwnerLayout } from '@/components/owner/owner-sidebar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { RoomAssignmentModal } from '@/components/owner/room-assignment-modal';
 
 const amenityOptions = [
   { id: 'WiFi', label: 'WiFi', icon: Wifi },
@@ -27,36 +29,106 @@ const amenityOptions = [
   { id: 'Balcony', label: 'Balcony', icon: Sun },
 ];
 
+const normalizeAmenities = (amenities: string[] | string | null | undefined): string[] => {
+  if (Array.isArray(amenities)) {
+    return amenities;
+  }
+
+  if (typeof amenities === 'string') {
+    return amenities.split(',').map((item) => item.trim()).filter(Boolean);
+  }
+
+  return [];
+};
+
 export default function OwnerRoomsPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { owner, isAuthenticated, userType } = useAuthStore();
-  const { rooms, students, addRoom, updateRoom, deleteRoom } = useDataStore();
   
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingRoom, setEditingRoom] = useState<Room | null>(null);
+  const [editingRoom, setEditingRoom] = useState<ApiRoom | null>(null);
   
-  // Form state
   const [roomNumber, setRoomNumber] = useState('');
   const [floor, setFloor] = useState('1');
   const [capacity, setCapacity] = useState('3');
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
 
+  // Assignment dialog state
+  const [unassignedStudents, setUnassignedStudents] = useState<ApiStudent[]>([]);
+  const [roomStudentsMap, setRoomStudentsMap] = useState<Record<string, ApiStudent[]>>({});
+  const [assignmentModalOpen, setAssignmentModalOpen] = useState(false);
+  const [selectedRoomForAssignment, setSelectedRoomForAssignment] = useState<ApiRoom | null>(null);
+
+  const [rooms, setRooms] = useState<ApiRoom[]>([]);
+
   useEffect(() => {
     if (!isAuthenticated || userType !== 'owner') {
       router.push('/owner/login');
+      return;
     }
-  }, [isAuthenticated, userType, router]);
 
-  if (!owner) return null;
+    fetchRooms();
+    fetchUnassignedStudents();
+  }, [isAuthenticated, userType, router, owner?.id]);
 
-  const getRoomStatus = (room: Room) => {
-    if (room.occupants.length === 0) return 'vacant';
-    if (room.occupants.length >= room.capacity) return 'full';
-    return 'occupied';
+  const fetchUnassignedStudents = async () => {
+    if (!owner?.id) return;
+
+    try {
+      const response = await fetch(`/api/owner/${owner.id}/students/unassigned`);
+      if (response.ok) {
+        const data = await response.json();
+        setUnassignedStudents(data.students || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch unassigned students:', error);
+    }
   };
 
+  const fetchRooms = async () => {
+    if (!owner?.id) return;
+    
+    try {
+      const response = await fetch(`/api/owner/${owner.id}/rooms`);
+      if (response.ok) {
+        const data = await response.json();
+        setRooms(
+          (data.rooms || []).map((room: ApiRoom & { amenities: string[] | string | null }) => ({
+            ...room,
+            amenities: normalizeAmenities(room.amenities),
+          })),
+        );
+      }
+    } catch {
+      toast({
+        title: 'Failed to load rooms',
+        description: 'Please refresh the page',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const fetchRoomStudents = async (roomId: string) => {
+    if (!owner?.id) return;
+
+    try {
+      const response = await fetch(`/api/owner/${owner.id}/rooms/${roomId}/students`);
+      if (response.ok) {
+        const data = await response.json();
+        setRoomStudentsMap(prev => ({ ...prev, [roomId]: data.students || [] }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch room students:', error);
+    }
+  };
+
+  if (!owner) {
+    return null;
+  }
+
+  const getRoomStatus = (room: ApiRoom) => ((room.studentCount || 0) === 0 ? 'vacant' : (room.studentCount || 0) >= room.capacity ? 'full' : 'occupied');
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'vacant': return 'bg-teal-500/20 text-teal-400 border-teal-500/30';
@@ -66,35 +138,33 @@ export default function OwnerRoomsPage() {
     }
   };
 
-  const getStudentsInRoom = (roomId: string) => {
-    return students.filter(s => s.roomId === roomId);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const roomData = {
-      roomNumber,
-      floor: parseInt(floor),
-      capacity: parseInt(capacity),
-      amenities: selectedAmenities,
-      occupants: editingRoom?.occupants || [],
-    };
 
-    if (editingRoom) {
-      updateRoom(editingRoom.id, roomData);
-      toast({
-        title: 'Room Updated',
-        description: `Room ${roomNumber} has been updated successfully.`,
+    try {
+      const response = await fetch(`/api/owner/${owner.id}/rooms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomNumber,
+          floor: parseInt(floor),
+          capacity: parseInt(capacity),
+          amenities: selectedAmenities,
+        }),
       });
-    } else {
-      addRoom({
-        id: `room_${Date.now()}`,
-        ...roomData,
-      });
+      
+      if (response.ok) {
+        toast({
+          title: editingRoom ? 'Room Updated' : 'Room Added',
+          description: `Room ${roomNumber} saved successfully.`,
+        });
+        fetchRooms();
+      }
+    } catch {
       toast({
-        title: 'Room Added',
-        description: `Room ${roomNumber} has been added successfully.`,
+        title: 'Error',
+        description: 'Failed to save room',
+        variant: 'destructive',
       });
     }
     
@@ -102,29 +172,102 @@ export default function OwnerRoomsPage() {
     setIsDialogOpen(false);
   };
 
-  const handleEdit = (room: Room) => {
+  const handleEdit = (room: ApiRoom) => {
     setEditingRoom(room);
     setRoomNumber(room.roomNumber);
     setFloor(room.floor.toString());
     setCapacity(room.capacity.toString());
-    setSelectedAmenities(room.amenities);
+    setSelectedAmenities(room.amenities || []);
     setIsDialogOpen(true);
+    fetchRoomStudents(room.id);
   };
 
-  const handleDelete = (room: Room) => {
-    if (room.occupants.length > 0) {
+  const handleDelete = async (room: ApiRoom) => {
+    try {
+      const response = await fetch(`/api/owner/${owner.id}/rooms/${room.id}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        toast({
+          title: 'Room Deleted',
+          description: `Room ${room.roomNumber} deleted successfully.`,
+        });
+        fetchRooms();
+      } else {
+        toast({
+          title: 'Cannot Delete',
+          description: 'Room has occupants or error occurred.',
+          variant: 'destructive',
+        });
+      }
+    } catch {
       toast({
-        title: 'Cannot Delete',
-        description: 'Room has occupants. Please remove students first.',
+        title: 'Error',
+        description: 'Failed to delete room.',
         variant: 'destructive',
       });
-      return;
     }
-    deleteRoom(room.id);
-    toast({
-      title: 'Room Deleted',
-      description: `Room ${room.roomNumber} has been deleted.`,
-    });
+  };
+
+  const handleAssignStudents = async (roomId: string, selectedIds: string[]) => {
+    try {
+      const response = await fetch(`/api/owner/${owner.id}/rooms/${roomId}/students`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentIds: selectedIds }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: 'Students Assigned',
+          description: 'Students assigned to room successfully.',
+        });
+        await Promise.all([fetchRooms(), fetchUnassignedStudents(), fetchRoomStudents(roomId)]);
+        setAssignmentModalOpen(false);
+        setSelectedRoomForAssignment(null);
+      }
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to assign students.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleRemoveStudent = async (roomId: string, studentId: string) => {
+    try {
+      const response = await fetch(`/api/owner/${owner.id}/rooms/${roomId}/students`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: 'Student Removed',
+          description: 'Student removed from room.',
+        });
+        await Promise.all([fetchRooms(), fetchUnassignedStudents()]);
+        setRoomStudentsMap(prev => {
+          const newMap = { ...prev };
+          newMap[roomId] = (newMap[roomId] || []).filter((s: ApiStudent) => s.id !== studentId);
+          return newMap;
+        });
+      }
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to remove student.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleOpenAssignmentModal = (room: ApiRoom) => {
+    setSelectedRoomForAssignment(room);
+    setAssignmentModalOpen(true);
+    fetchRoomStudents(room.id);
   };
 
   const resetForm = () => {
@@ -143,12 +286,11 @@ export default function OwnerRoomsPage() {
     );
   };
 
-  // Group rooms by floor
-  const roomsByFloor = rooms.reduce((acc, room) => {
+  const roomsByFloor = rooms.reduce((acc: Record<number, ApiRoom[]>, room) => {
     if (!acc[room.floor]) acc[room.floor] = [];
     acc[room.floor].push(room);
     return acc;
-  }, {} as Record<number, Room[]>);
+  }, {} as Record<number, ApiRoom[]>);
 
   return (
     <OwnerLayout>
@@ -267,7 +409,10 @@ export default function OwnerRoomsPage() {
                 <AnimatePresence>
                   {floorRooms.map((room, index) => {
                     const status = getRoomStatus(room);
+                    const roomStudents = roomStudentsMap[room.id] ?? room.students ?? [];
+                    const amenities = room.amenities ?? [];
                     
+
                     return (
                       <motion.div
                         key={room.id}
@@ -285,10 +430,42 @@ export default function OwnerRoomsPage() {
                           </Badge>
                         </div>
                         
+                        {/* Student Management */}
+                        <div className="space-y-2 mb-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase">Occupants</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenAssignmentModal(room)}
+                              className="h-6 text-[10px] bg-white/5 border-white/10 px-2"
+                              disabled={unassignedStudents.length === 0}
+                            >
+                              Assign ({unassignedStudents.length})
+                            </Button>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            {roomStudents.map(s => (
+                              <div key={s.id} className="flex items-center justify-between bg-white/5 px-2 py-1 rounded text-[10px]">
+                                <span className="truncate max-w-[80px]">{s.name}</span>
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); handleRemoveStudent(room.id, s.id); }}
+                                  className="text-red-400 hover:text-red-300"
+                                >
+                                  <X className="w-2.5 h-2.5" />
+                                </button>
+                              </div>
+                            ))}
+                            {roomStudents.length === 0 && (
+                              <span className="text-[10px] italic text-muted-foreground">Vacant</span>
+                            )}
+                          </div>
+                        </div>
+
                         <div className="flex items-center gap-1 mb-2">
                           <Users className="w-3 h-3 lg:w-4 lg:h-4 text-muted-foreground" />
                           <span className="text-xs lg:text-sm text-muted-foreground">
-                            {room.occupants.length}/{room.capacity}
+                            {room.studentCount}/{room.capacity}
                           </span>
                         </div>
                         
@@ -298,7 +475,7 @@ export default function OwnerRoomsPage() {
                             <div
                               key={i}
                               className={`w-3 h-3 lg:w-4 lg:h-4 rounded-full ${
-                                i < room.occupants.length 
+                                i < room.studentCount 
                                   ? status === 'full' ? 'bg-red-400' : 'bg-amber-400'
                                   : 'bg-slate-600'
                               }`}
@@ -308,7 +485,7 @@ export default function OwnerRoomsPage() {
                         
                         {/* Amenities */}
                         <div className="flex flex-wrap gap-1 mb-2 lg:mb-3">
-                          {room.amenities.slice(0, 2).map(amenity => (
+                          {amenities.slice(0, 2).map(amenity => (
                             <span
                               key={amenity}
                               className="text-[10px] lg:text-xs px-1.5 lg:px-2 py-0.5 rounded-full bg-slate-700/50 text-muted-foreground"
@@ -316,9 +493,9 @@ export default function OwnerRoomsPage() {
                               {amenity}
                             </span>
                           ))}
-                          {room.amenities.length > 2 && (
+                          {amenities.length > 2 && (
                             <span className="text-[10px] lg:text-xs px-1.5 lg:px-2 py-0.5 rounded-full bg-slate-700/50 text-muted-foreground">
-                              +{room.amenities.length - 2}
+                              +{amenities.length - 2}
                             </span>
                           )}
                         </div>
@@ -378,7 +555,7 @@ export default function OwnerRoomsPage() {
                             <td className="p-3 lg:p-4">
                               <span className="flex items-center gap-1 text-sm">
                                 <Users className="w-3 h-3 lg:w-4 lg:h-4 text-muted-foreground" />
-                                {room.occupants.length}/{room.capacity}
+                                {room.studentCount}/{room.capacity}
                               </span>
                             </td>
                             <td className="p-3 lg:p-4">
@@ -509,6 +686,23 @@ export default function OwnerRoomsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {selectedRoomForAssignment ? (
+        <RoomAssignmentModal
+          open={assignmentModalOpen}
+          onOpenChange={(open) => {
+            setAssignmentModalOpen(open);
+            if (!open) {
+              setSelectedRoomForAssignment(null);
+            }
+          }}
+          roomNumber={selectedRoomForAssignment.roomNumber}
+          capacity={selectedRoomForAssignment.capacity}
+          currentOccupancy={selectedRoomForAssignment.studentCount}
+          onAssign={(studentIds) => handleAssignStudents(selectedRoomForAssignment.id, studentIds)}
+          students={unassignedStudents}
+        />
+      ) : null}
     </OwnerLayout>
-  );
+  )
 }

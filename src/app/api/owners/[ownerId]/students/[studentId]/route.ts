@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/password';
@@ -28,6 +29,24 @@ export async function PATCH(request: Request, context: RouteContext) {
       }
     }
 
+    const nextRoomId = typeof body?.roomId === 'string' && body.roomId.trim() ? body.roomId.trim() : null;
+
+    if (nextRoomId) {
+      const room = await db.room.findFirst({
+        where: { id: nextRoomId, ownerId },
+        include: { students: true },
+      });
+
+      if (!room) {
+        return NextResponse.json({ error: 'Selected room was not found for this hostel.' }, { status: 404 });
+      }
+
+      const occupiedByOthers = room.students.filter((student) => student.id !== studentId).length;
+      if (occupiedByOthers >= room.capacity) {
+        return NextResponse.json({ error: 'Selected room is already full.' }, { status: 400 });
+      }
+    }
+
     const student = await db.student.update({
       where: { id: studentId },
       data: {
@@ -38,6 +57,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         college: body?.college?.trim() || null,
         parentContact: body?.parentContact?.trim() || null,
         address: body?.address?.trim() || null,
+        roomId: nextRoomId,
       },
       include: { room: true },
     });
@@ -74,10 +94,34 @@ export async function DELETE(_: Request, context: RouteContext) {
       return NextResponse.json({ error: 'Student not found for this hostel.' }, { status: 404 });
     }
 
-    await db.student.delete({ where: { id: studentId } });
+    await db.$transaction([
+      db.notification.deleteMany({
+        where: {
+          studentId,
+          ownerId,
+        },
+      }),
+      db.mealParticipation.deleteMany({
+        where: { studentId },
+      }),
+      db.complaint.deleteMany({
+        where: {
+          studentId,
+          ownerId,
+        },
+      }),
+      db.fee.deleteMany({
+        where: {
+          studentId,
+          ownerId,
+        },
+      }),
+      db.student.delete({ where: { id: studentId } }),
+    ]);
 
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error('Owner Student Delete Error:', error);
     return NextResponse.json({ error: 'Unable to remove student right now.' }, { status: 500 });
   }
 }

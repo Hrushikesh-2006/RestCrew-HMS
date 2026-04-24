@@ -6,7 +6,7 @@ import { useAuthStore } from '@/lib/auth-store';
 import { 
   LayoutDashboard, DoorOpen, Users, UtensilsCrossed, 
   AlertTriangle, DollarSign, BarChart3, LogOut, Building2, 
-  Settings, Menu, X
+  Settings, Menu, X, Bell
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePathname, useRouter } from 'next/navigation';
@@ -25,6 +25,7 @@ const ownerNavItems: NavItem[] = [
   { label: 'Meals', icon: UtensilsCrossed, href: '/owner/meals', gradient: 'from-orange-500 to-amber-500' },
   { label: 'Complaints', icon: AlertTriangle, href: '/owner/complaints', gradient: 'from-red-500 to-rose-500' },
   { label: 'Fees', icon: DollarSign, href: '/owner/fees', gradient: 'from-yellow-500 to-amber-500' },
+  { label: 'Notifications', icon: Bell, href: '/owner/notifications', gradient: 'from-blue-600 to-cyan-500' },
   { label: 'Analytics', icon: BarChart3, href: '/owner/analytics', gradient: 'from-indigo-500 to-purple-500' },
 ];
 

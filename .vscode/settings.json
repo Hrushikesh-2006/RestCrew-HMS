@@ -1,24 +1,41 @@
-﻿{
-    "files.associations":  {
-                               "bun.lock":  "plaintext"
-                           },
-    "cSpell.words":  [
-                         "glassmorphism",
-                         "RestCrew",
-                         "mdxeditor",
-                         "cmdk",
-                         "Permissioned",
-                         "reactuses",
-                         "vaul"
-                     ],
-    "cSpell.ignorePaths":  [
-                               "bun.lock",
-                               "package-lock.json",
-                               "node_modules",
-                               ".next"
-                           ],
-    "cSpell.ignoreRegExpList":  [
-                                    "/\\b[a-z]+:\\w+(?:-\\w+)*-\\[[^\\]]+\\]/g",
-                                    "/\\b[a-z]+-\\[[^\\]]+\\]/g"
-                                ]
+{
+  "files.associations": {
+    "bun.lock": "plaintext",
+    "*.css": "tailwindcss"
+  },
+  "css.lint.unknownAtRules": "ignore",
+  "json.schemaDownload.enable": false,
+  "json.schemas": [
+    {
+      "fileMatch": ["/package.json"],
+      "url": "./.vscode/package.schema.json"
+    }
+  ],
+  "cSpell.words": [
+    "glassmorphism",
+    "RestCrew",
+    "mdxeditor",
+    "cmdk",
+    "Permissioned",
+    "reactuses",
+    "vaul"
+  ],
+  "cSpell.ignorePaths": [
+    "bun.lock",
+    "package-lock.json",
+    "node_modules",
+    ".next"
+  ],
+  "cSpell.ignoreRegExpList": [
+    "/\\b[a-z]+:\\w+(?:-\\w+)*-\\[[^\\]]+\\]/g",
+    "/\\b[a-z]+-\\[[^\\]]+\\]/g"
+  ],
+  "files.exclude": {
+    "**/.git": true,
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true,
+    ".yoyo": true
+  }
 }

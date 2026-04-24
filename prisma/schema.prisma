@@ -20,11 +20,12 @@ model Owner {
   hostelAddress String
   phone         String?
   createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  updatedAt   DateTime @updatedAt
   rooms         Room[]
   students      Student[]
   meals         Meal[]
   complaints    Complaint[]
+  notifications Notification[]
   fees          Fee[]
   expenses      Expense[]
   investments   Investment[]
@@ -48,7 +49,25 @@ model Student {
   updatedAt      DateTime @updatedAt
   mealParticipations MealParticipation[]
   complaints     Complaint[]
+  notifications  Notification[]
   fees           Fee[]
+}
+
+// ... existing models (Room, Meal, MealParticipation, Complaint, Fee, Expense, Investment)
+
+// Notification
+model Notification {
+  id          String   @id @default(cuid())
+  type        String   // Payment, Meal, Complaint, General
+  title       String
+  message     String
+  isRead      Boolean  @default(false)
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id])
+  ownerId     String
+  owner       Owner    @relation(fields: [ownerId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 // Room

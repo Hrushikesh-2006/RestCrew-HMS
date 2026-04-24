@@ -1,15 +1,16 @@
 'use client';
 
-import { motion, Variants } from 'framer-motion';
-import { Building2, User2, ArrowRight, Shield, Users, Sparkles } from 'lucide-react';
+import { Building2, User2, ArrowRight, Loader2, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useAuthStore } from '@/lib/auth-store';
+import { HostelModernBackground } from '@/components/shared/hostel-modern-bg';
 
 export default function Home() {
   const router = useRouter();
   const { isAuthenticated, userType } = useAuthStore();
-
+  
   useEffect(() => {
     if (isAuthenticated) {
       if (userType === 'owner') {
@@ -20,204 +21,103 @@ export default function Home() {
     }
   }, [isAuthenticated, userType, router]);
 
-  const containerVariants: Variants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.15, delayChildren: 0.2 },
-    },
-  };
-
-  const itemVariants: Variants = {
-    hidden: { opacity: 0, y: 30 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.6, ease: [0.23, 1, 0.32, 1] },
-    },
-  };
-
-  const floatVariants: Variants = {
-    animate: {
-      y: [-15, 15, -15],
-      rotate: [-2, 2, -2],
-      transition: { duration: 8, ease: 'easeInOut', repeat: Infinity },
-    },
-  };
+  if (isAuthenticated) {
+    return (
+      <div className="h-screen relative overflow-hidden flex items-center justify-center bg-[#020617]">
+        <div className="absolute inset-0 hero-pattern opacity-40" />
+        <Loader2 className="h-12 w-12 text-purple-500 animate-spin relative z-10" />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Animated Background */}
-      <div className="absolute inset-0 hero-pattern" />
+    <div className="min-h-screen relative overflow-hidden bg-background text-foreground">
+      {/* HostelModernBackground disabled for pure black theme */}
       
-      {/* Floating Orbs with different colors */}
-      <motion.div
-        variants={floatVariants}
-        animate="animate"
-        className="absolute top-10 left-5 w-40 h-40 lg:w-72 lg:h-72 rounded-full bg-gradient-to-br from-purple-500/25 via-pink-500/15 to-transparent blur-3xl"
-      />
-      <motion.div
-        variants={floatVariants}
-        animate="animate"
-        style={{ animationDelay: '2s' }}
-        className="absolute bottom-10 right-5 w-48 h-48 lg:w-96 lg:h-96 rounded-full bg-gradient-to-br from-orange-500/20 via-amber-500/15 to-transparent blur-3xl"
-      />
-      <motion.div
-        variants={floatVariants}
-        animate="animate"
-        style={{ animationDelay: '4s' }}
-        className="absolute top-1/2 left-1/3 w-32 h-32 lg:w-64 lg:h-64 rounded-full bg-gradient-to-br from-cyan-500/20 via-teal-500/15 to-transparent blur-3xl"
-      />
-      <motion.div
-        variants={floatVariants}
-        animate="animate"
-        style={{ animationDelay: '6s' }}
-        className="absolute top-20 right-1/4 w-24 h-24 lg:w-48 lg:h-48 rounded-full bg-gradient-to-br from-pink-500/20 via-rose-500/15 to-transparent blur-3xl"
-      />
-
-      {/* Decorative Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-10 w-2 h-2 bg-purple-400 rounded-full animate-pulse" />
-        <div className="absolute top-1/3 right-20 w-3 h-3 bg-pink-400 rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
-        <div className="absolute bottom-1/4 left-1/4 w-2 h-2 bg-cyan-400 rounded-full animate-pulse" style={{ animationDelay: '2s' }} />
-        <div className="absolute top-1/2 right-10 w-2 h-2 bg-orange-400 rounded-full animate-pulse" style={{ animationDelay: '1.5s' }} />
-        <div className="absolute bottom-1/3 right-1/3 w-3 h-3 bg-green-400 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }} />
-      </div>
-
-      {/* Main Content */}
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-8"
-      >
-        {/* Logo and Title */}
-        <motion.div variants={itemVariants} className="text-center mb-6 lg:mb-12">
+      <main className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 py-10 lg:py-16">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          className="text-center mb-16 max-w-3xl"
+        >
           <motion.div
-            initial={{ scale: 0, rotate: -180 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
-            className="relative inline-flex"
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-sm font-medium mb-6 backdrop-blur-md"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 rounded-2xl lg:rounded-3xl blur-xl opacity-50 animate-pulse" />
-            <div className="relative w-16 h-16 lg:w-24 lg:h-24 rounded-2xl lg:rounded-3xl bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 flex items-center justify-center shadow-2xl">
-              <Building2 className="w-8 h-8 lg:w-12 lg:h-12 text-white" />
-            </div>
+            <Sparkles className="h-4 w-4" />
+            <span>Next-Gen Hostel Management</span>
           </motion.div>
           
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="mt-4 lg:mt-6"
-          >
-            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold">
-              <span className="gradient-text">Rest</span>
-              <span className="gradient-text-alt">Crew</span>
-            </h1>
-            <motion.div
-              initial={{ scaleX: 0 }}
-              animate={{ scaleX: 1 }}
-              transition={{ delay: 0.5, duration: 0.6 }}
-              className="mt-3 lg:mt-4 h-1 w-32 lg:w-48 mx-auto bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 rounded-full"
-            />
-          </motion.div>
-          
-          <p className="text-base lg:text-xl text-muted-foreground max-w-md mx-auto px-4 mt-4 lg:mt-6">
-            Modern Hostel Management System for Owners and Students
+          <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 mt-2">
+            Welcome to <span className="gradient-text drop-shadow-[0_0_15px_rgba(139,92,246,0.3)]">RestCrew</span>
+          </h1>
+          <p className="text-lg md:text-xl text-slate-400 leading-relaxed max-w-2xl mx-auto">
+            Experience the future of shared living. Seamlessly manage your hostel or stay updated with your stay in real-time.
           </p>
         </motion.div>
 
-        {/* Features */}
-        <motion.div variants={itemVariants} className="flex flex-wrap justify-center gap-3 lg:gap-4 mb-8 lg:mb-12">
-          {[
-            { icon: Shield, text: 'Secure', color: 'from-green-400 to-emerald-500' },
-            { icon: Users, text: 'Collaborative', color: 'from-blue-400 to-cyan-500' },
-            { icon: Sparkles, text: 'Beautiful', color: 'from-purple-400 to-pink-500' },
-          ].map((feature, index) => (
-            <motion.div
-              key={index}
-              whileHover={{ scale: 1.05, y: -5 }}
-              className="flex items-center gap-2 px-4 lg:px-5 py-2 lg:py-2.5 rounded-full glass hover:border-purple-500/30 transition-all cursor-default"
-            >
-              <div className={`w-5 h-5 lg:w-6 lg:h-6 rounded-lg bg-gradient-to-br ${feature.color} flex items-center justify-center`}>
-                <feature.icon className="w-3 h-3 lg:w-4 lg:h-4 text-white" />
-              </div>
-              <span className="text-xs lg:text-sm font-medium">{feature.text}</span>
-            </motion.div>
-          ))}
-        </motion.div>
-
-        {/* Login Cards */}
-        <motion.div
-          variants={itemVariants}
-          className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 w-full max-w-4xl"
-        >
-          {/* Owner Card */}
-          <motion.button
-            whileHover={{ scale: 1.02, y: -10 }}
-            whileTap={{ scale: 0.98 }}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-5xl relative">
+          <motion.div
+            whileHover={{ y: -10, scale: 1.02 }}
+            className="group relative"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') router.push('/owner/login');
+            }}
             onClick={() => router.push('/owner/login')}
-            className="group relative overflow-hidden rounded-2xl lg:rounded-3xl glass p-6 lg:p-8 text-left transition-all duration-500"
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-pink-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="absolute inset-0 rounded-2xl lg:rounded-3xl border border-purple-500/0 group-hover:border-purple-500/30 transition-colors duration-500" />
-            
-            <div className="relative z-10">
-              <div className="w-14 h-14 lg:w-18 lg:h-18 rounded-2xl bg-gradient-to-br from-purple-500 via-violet-500 to-pink-500 flex items-center justify-center mb-4 lg:mb-6 shadow-lg shadow-purple-500/30 group-hover:shadow-purple-500/50 group-hover:scale-110 transition-all duration-500">
-                <Building2 className="w-7 h-7 lg:w-9 lg:h-9 text-white" />
+            <div className="absolute -inset-0.5 bg-linear-to-r from-purple-500 to-cyan-500 rounded-3xl blur opacity-30 group-hover:opacity-60 transition duration-1000"></div>
+            <div className="relative glass p-10 rounded-3xl flex flex-col h-full cursor-pointer overflow-hidden border-white/5">
+              <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-500">
+                <Building2 className="h-32 w-32" />
               </div>
-              <h2 className="text-xl lg:text-2xl font-bold text-foreground mb-2">
-                Hostel Owner
-              </h2>
-              <p className="text-muted-foreground text-sm lg:text-base mb-4 lg:mb-6 leading-relaxed">
-                Manage rooms, students, fees, and track your hostel's performance with powerful analytics.
+              <div className="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-500/20 text-purple-400">
+                <Building2 className="h-8 w-8" />
+              </div>
+              <h2 className="text-3xl font-bold mb-3 text-white">Hostel Owner</h2>
+              <p className="text-slate-400 mb-8 leading-relaxed">
+                Streamline operations, manage fees, room allocation, and analytics in one powerful dashboard.
               </p>
-              <div className="flex items-center gap-2 text-purple-400 group-hover:gap-4 transition-all duration-300">
-                <span className="font-medium text-sm lg:text-base">Access Owner Portal</span>
-                <ArrowRight className="w-4 h-4 lg:w-5 lg:h-5 group-hover:translate-x-1 transition-transform duration-300" />
+              <div className="mt-auto flex items-center gap-2 text-purple-400 font-semibold group-hover:text-purple-300 transition-colors">
+                Enter Owner Portal <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
               </div>
             </div>
-          </motion.button>
+          </motion.div>
 
-          {/* Student Card */}
-          <motion.button
-            whileHover={{ scale: 1.02, y: -10 }}
-            whileTap={{ scale: 0.98 }}
+          <motion.div
+            whileHover={{ y: -10, scale: 1.02 }}
+            className="group relative"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') router.push('/student/login');
+            }}
             onClick={() => router.push('/student/login')}
-            className="group relative overflow-hidden rounded-2xl lg:rounded-3xl glass p-6 lg:p-8 text-left transition-all duration-500"
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 via-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="absolute inset-0 rounded-2xl lg:rounded-3xl border border-orange-500/0 group-hover:border-orange-500/30 transition-colors duration-500" />
-            
-            <div className="relative z-10">
-              <div className="w-14 h-14 lg:w-18 lg:h-18 rounded-2xl bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 flex items-center justify-center mb-4 lg:mb-6 shadow-lg shadow-orange-500/30 group-hover:shadow-orange-500/50 group-hover:scale-110 transition-all duration-500">
-                <User2 className="w-7 h-7 lg:w-9 lg:h-9 text-white" />
+            <div className="absolute -inset-0.5 bg-linear-to-r from-cyan-500 to-emerald-500 rounded-3xl blur opacity-30 group-hover:opacity-60 transition duration-1000"></div>
+            <div className="relative glass p-10 rounded-3xl flex flex-col h-full cursor-pointer overflow-hidden border-white/5">
+              <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-500">
+                <User2 className="h-32 w-32" />
               </div>
-              <h2 className="text-xl lg:text-2xl font-bold text-foreground mb-2">
-                Student / Hosteler
-              </h2>
-              <p className="text-muted-foreground text-sm lg:text-base mb-4 lg:mb-6 leading-relaxed">
-                Access meals, submit complaints, check fees, and manage your hostel services easily.
+              <div className="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-500/20 text-cyan-400">
+                <User2 className="h-8 w-8" />
+              </div>
+              <h2 className="text-3xl font-bold mb-3 text-white">Guest Student</h2>
+              <p className="text-slate-400 mb-8 leading-relaxed">
+                Pay fees, track meals, report issues, and stay connected with your hostel management.
               </p>
-              <div className="flex items-center gap-2 text-orange-400 group-hover:gap-4 transition-all duration-300">
-                <span className="font-medium text-sm lg:text-base">Access Student Portal</span>
-                <ArrowRight className="w-4 h-4 lg:w-5 lg:h-5 group-hover:translate-x-1 transition-transform duration-300" />
+              <div className="mt-auto flex items-center gap-2 text-cyan-400 font-semibold group-hover:text-cyan-300 transition-colors">
+                Enter Student Portal <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
               </div>
             </div>
-          </motion.button>
-        </motion.div>
+          </motion.div>
+        </div>
 
-        {/* Footer */}
-        <motion.div
-          variants={itemVariants}
-          className="mt-8 lg:mt-16 text-center"
-        >
-          <p className="text-xs lg:text-sm text-muted-foreground">
-            © 2024 RestCrew. Modern Hostel Management.
-          </p>
-        </motion.div>
-      </motion.div>
+      </main>
     </div>
   );
 }

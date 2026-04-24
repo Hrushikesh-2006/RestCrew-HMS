@@ -1,8 +1,8 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { motion } from 'framer-motion';
 import { LucideIcon } from 'lucide-react';
+import { ThemeToggle } from '../theme-toggle';
 
 interface PageHeaderProps {
   title: string;
@@ -14,34 +14,25 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, icon: Icon, action, className }: PageHeaderProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={cn('flex items-center justify-between mb-8', className)}
-    >
+    <div className={cn('flex items-center justify-between mb-8', className)}>
       <div className="flex items-center gap-4">
         {Icon && (
-          <div className="p-3 rounded-xl bg-gradient-to-br from-teal-500/20 to-teal-500/5 border border-teal-500/20">
+          <div className="p-3 rounded-xl bg-gradient-to-r from-teal-500/20 to-teal-500/5 border border-teal-500/20">
             <Icon className="w-6 h-6 text-teal-400" />
           </div>
         )}
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground">{title}</h1>
+          <h1 className="text-2xl md:text-3xl font-bold gradient-text">{title}</h1>
           {subtitle && (
             <p className="text-muted-foreground mt-1">{subtitle}</p>
           )}
         </div>
       </div>
-      {action && (
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          {action}
-        </motion.div>
-      )}
-    </motion.div>
+      <div className="flex items-center gap-2">
+        {action}
+        <ThemeToggle />
+      </div>
+    </div>
   );
 }
 

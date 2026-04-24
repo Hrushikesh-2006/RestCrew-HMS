@@ -105,6 +105,7 @@ The analytics page uses **Google Gemini AI** to provide:
 - No backend server required
 - Perfect for demo and small-scale usage
 - Can be extended with a real backend
+- Firebase web config values (NEXT_PUBLIC_FIREBASE_*) are expected to be visible in the browser; protect access via Firebase rules, authorized domains, and API key restrictions in Google Cloud.
 
 ## License
 
