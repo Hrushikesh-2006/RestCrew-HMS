@@ -100,7 +100,7 @@ The central hub for hostel administration, featuring glassmorphism cards and rea
 ### Hosteler Portal
 A mobile-optimized interface allowing students to manage their hostel life on the go.
 
-![Hosteler Dashboard Preview](public/readme/student_preview.png)
+![Hosteler Dashboard Actual](public/readme/student_dashboard.png)
 
 ---
 
