@@ -12,19 +12,28 @@ export const metadata: Metadata = {
   title: "RestCrew - Modern Hostel Management System",
   description: "A beautiful, modern hostel management system for owners and students",
   manifest: "/manifest.webmanifest",
+  applicationName: "RestCrew",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "RestCrew",
   },
   icons: {
-    icon: "/logo.svg",
-    apple: "/logo.svg",
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/logo.svg", type: "image/svg+xml" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
   },
 };
 
 export const viewport = {
   themeColor: "#0f172a",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -35,7 +44,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <body className="antialiased app-shell">
-        {process.env.NODE_ENV === 'production' && <PwaRegister />}
+        <PwaRegister />
         <AutomatedReminders />
         <HydrationWrapper>
           <div className="app-content">

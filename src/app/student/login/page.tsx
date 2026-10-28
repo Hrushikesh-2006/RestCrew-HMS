@@ -1,28 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import {
-  ArrowLeft,
-  Eye,
-  EyeOff,
-  Lock,
-  Mail,
-  User2,
-  Loader2,
-} from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/lib/auth-store';
+import { motion } from 'framer-motion';
+import { ArrowLeft, Lock, User, Eye, EyeOff, Loader2 } from 'lucide-react';
+import Image from 'next/image';
+
 import { requestJson } from '@/lib/api-client';
-import { HostelModernBackground } from '@/components/shared/hostel-modern-bg';
-import { Button } from '@/components/ui/button';
+import { useAuthStore } from '@/lib/auth-store';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { ThemeToggle } from '@/components/theme-toggle';
 
-type StudentAuthPayload = {
+interface StudentAuthPayload {
   id: string;
+  userId?: string;
   email: string;
   name: string;
   phone?: string;
@@ -33,7 +28,7 @@ type StudentAuthPayload = {
   roomNumber?: string;
   ownerId?: string;
   hostelName?: string;
-};
+}
 
 export default function StudentLoginPage() {
   const router = useRouter();
@@ -48,7 +43,7 @@ export default function StudentLoginPage() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [loginEmail, setLoginEmail] = useState('');
+  const [studentUserId, setStudentUserId] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -59,7 +54,7 @@ export default function StudentLoginPage() {
       const { student } = await requestJson<{ student: StudentAuthPayload }>('/api/auth/student/login', {
         method: 'POST',
         body: JSON.stringify({
-          email: loginEmail,
+          userId: studentUserId.trim(),
           password: loginPassword,
         }),
       });
@@ -67,7 +62,7 @@ export default function StudentLoginPage() {
       loginStudent(student);
       toast({
         title: 'Welcome back!',
-        description: student.hostelName ?? undefined
+        description: student.hostelName
           ? `Connected to ${student.hostelName}`
           : `Logged in as ${student.name}`,
       });
@@ -75,7 +70,7 @@ export default function StudentLoginPage() {
     } catch (error) {
       toast({
         title: 'Login Failed',
-        description: error instanceof Error ? error.message : 'Unable to sign in.',
+        description: error instanceof Error ? error.message : 'Invalid Student ID or password.',
         variant: 'destructive',
       });
     } finally {
@@ -85,103 +80,110 @@ export default function StudentLoginPage() {
 
   if (!hasHydrated || (isAuthenticated && userType === 'student')) {
     return (
-      <div className="relative grid h-[100dvh] place-items-center overflow-hidden bg-[#020617]">
-        <div className="absolute inset-0 hero-pattern opacity-40" />
-        <Loader2 className="h-12 w-12 text-orange-500 animate-spin relative z-10" />
+      <div className="relative grid h-[100dvh] place-items-center overflow-hidden bg-background">
+        <Loader2 className="h-10 w-10 text-orange-500 animate-spin relative z-10" />
       </div>
     );
   }
 
   return (
-    <div className="relative grid h-[100dvh] place-items-center overflow-hidden bg-[#020617] p-4 text-white sm:p-6">
-      <HostelModernBackground />
-      
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.1),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(34,211,238,0.08),transparent_40%)]" />
-      <div className="absolute top-10 right-10 h-40 w-40 rounded-full bg-linear-to-br from-amber-500/20 to-transparent blur-3xl animate-pulse" />
-      <div className="absolute bottom-10 left-10 h-56 w-56 rounded-full bg-linear-to-br from-teal-500/20 to-transparent blur-3xl animate-pulse" />
+    <div className="min-h-screen relative flex items-center justify-center bg-background p-4 text-foreground sm:p-6 overflow-x-hidden">
+      {/* Top Controls */}
+      <div className="absolute left-4 top-4 z-20 flex items-center gap-3">
+        <button
+          onClick={() => router.push('/')}
+          className="flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground transition-colors hover:text-foreground font-medium p-1.5 rounded-lg hover:bg-muted"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>Back</span>
+        </button>
+      </div>
 
-      <button
-        onClick={() => router.push('/')}
-        className="absolute left-4 top-4 z-20 flex items-center gap-2 text-muted-foreground transition-colors hover:text-amber-300"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        <span className="text-sm">Back</span>
-      </button>
+      <div className="absolute right-4 top-4 z-20">
+        <ThemeToggle />
+      </div>
 
-      <div className="relative z-10 flex w-full items-center justify-center">
-          <Card className="card-3d w-full max-w-md overflow-hidden border-white/10 bg-slate-950/95 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] backdrop-blur-none">
-            <CardHeader className="pb-0 pt-10 text-center">
-              <motion.div
-                initial={{ scale: 0, rotate: 20 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: 'spring', damping: 12, stiffness: 200 }}
-                className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-gradient-to-br from-orange-500 to-amber-500 shadow-xl shadow-orange-500/20"
-              >
-                <User2 className="h-10 w-10 text-white" />
-              </motion.div>
-              <CardTitle className="text-3xl font-bold tracking-tight">
-                <span className="gradient-text-alt">Student Portal</span>
-              </CardTitle>
-              <p className="mt-2 text-sm text-slate-400 font-medium">
-                Enter your hostel-assigned credentials
-              </p>
-            </CardHeader>
+      <div className="relative z-10 flex w-full items-center justify-center max-w-md my-auto">
+        <Card className="w-full overflow-hidden border border-border bg-card shadow-xl rounded-2xl sm:rounded-3xl">
+          <CardHeader className="pb-0 pt-8 sm:pt-10 text-center">
+            <motion.div
+              initial={{ scale: 0, rotate: 20 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: 'spring', damping: 12, stiffness: 200 }}
+              className="mx-auto mb-4 sm:mb-5 flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-2xl overflow-hidden shadow-lg"
+            >
+              <Image src="/logo.svg" alt="RestCrew" width={80} height={80} className="w-full h-full" />
+            </motion.div>
+            <CardTitle className="text-2xl sm:text-3xl font-bold tracking-tight">
+              <span className="gradient-text-alt">Student Portal</span>
+            </CardTitle>
+            <p className="mt-1 text-xs sm:text-sm text-muted-foreground font-medium">
+              Sign in with credentials provided by your hostel owner
+            </p>
+          </CardHeader>
 
-            <CardContent className="px-5 pb-6 pt-5 lg:px-6">
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="student-email">Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="student-email"
-                      type="email"
-                      placeholder="student@example.com"
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
-                      className="input-dark h-11 pl-10"
-                      required
-                    />
-                  </div>
+          <CardContent className="px-5 pb-6 pt-5 sm:px-8 sm:pb-8">
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="student-userid" className="text-xs sm:text-sm font-medium">
+                  Student User ID
+                </Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="student-userid"
+                    type="text"
+                    placeholder="e.g. STU101 or student name ID"
+                    value={studentUserId}
+                    onChange={(e) => setStudentUserId(e.target.value)}
+                    className="h-10 sm:h-11 pl-10 text-xs sm:text-sm"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    required
+                  />
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="student-password">Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="student-password"
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="Enter assigned password"
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      className="input-dark h-11 pl-10 pr-10"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((value) => !value)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="h-11 w-full bg-linear-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/20 hover:from-amber-600 hover:to-orange-600"
-                >
-                  {isLoading ? <div className="spinner h-5 w-5" /> : 'Sign In To My Hostel'}
-                </Button>
-              </form>
-
-              <div className="mt-4 rounded-2xl border border-amber-500/20 bg-slate-900 p-4 text-xs leading-5 text-muted-foreground">
-                Student accounts are owner-managed. Sign in with the credentials provided by your hostel owner.
               </div>
-            </CardContent>
-          </Card>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="student-password" className="text-xs sm:text-sm font-medium">
+                  Password
+                </Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="student-password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Enter assigned password"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    className="h-10 sm:h-11 pl-10 pr-10 text-xs sm:text-sm"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((value) => !value)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="h-10 sm:h-11 w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold shadow-md hover:from-amber-600 hover:to-orange-600 transition-all text-xs sm:text-sm"
+              >
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Sign In To My Hostel'}
+              </Button>
+            </form>
+
+            <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 sm:p-3.5 text-xs text-muted-foreground leading-relaxed">
+              <strong className="text-foreground">Hostel Member Login:</strong> Enter the unique Student User ID and password assigned to you by your hostel owner.
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

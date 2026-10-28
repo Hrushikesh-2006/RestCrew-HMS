@@ -61,26 +61,23 @@ export function StatsCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
       className={cn(
-        'glass rounded-2xl p-6 relative overflow-hidden',
+        'bg-card text-card-foreground border border-border shadow-xs rounded-2xl p-4 sm:p-6 relative overflow-hidden',
         'card-3d cursor-pointer',
         styles.glow,
         className
       )}
     >
-      {/* Background gradient */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-white/5 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
-      
       <div className="relative z-10 flex items-start justify-between">
         <div className="flex-1">
-          <p className="text-sm text-muted-foreground mb-1">{title}</p>
-          <h3 className="text-3xl font-bold text-foreground">{value}</h3>
+          <p className="text-xs sm:text-sm text-muted-foreground mb-1">{title}</p>
+          <h3 className="text-2xl sm:text-3xl font-bold text-foreground">{value}</h3>
           {subtitle && (
             <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
           )}
           {trend && (
             <div className={cn(
-              'flex items-center gap-1 mt-2 text-sm',
-              trend.isPositive ? 'text-green-400' : 'text-red-400'
+              'flex items-center gap-1 mt-2 text-xs sm:text-sm',
+              trend.isPositive ? 'text-green-500 dark:text-green-400' : 'text-red-500 dark:text-red-400'
             )}>
               <span>{trend.isPositive ? '↑' : '↓'}</span>
               <span>{Math.abs(trend.value)}%</span>
@@ -88,8 +85,8 @@ export function StatsCard({
             </div>
           )}
         </div>
-        <div className={cn('p-3 rounded-xl', styles.icon)}>
-          <Icon className="w-6 h-6" />
+        <div className={cn('p-2.5 sm:p-3 rounded-xl shrink-0', styles.icon)}>
+          <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
         </div>
       </div>
     </motion.div>
@@ -109,8 +106,8 @@ export function StatsCardCompact({
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       className={cn(
-        'glass rounded-xl p-4 flex items-center gap-3',
-        'hover:shadow-lg transition-shadow cursor-pointer',
+        'bg-card text-card-foreground border border-border shadow-xs rounded-xl p-3 sm:p-4 flex items-center gap-3',
+        'hover:shadow-md transition-shadow cursor-pointer',
         styles.glow,
       )}
     >

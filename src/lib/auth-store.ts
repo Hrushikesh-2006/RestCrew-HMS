@@ -14,7 +14,8 @@ export interface Owner {
 
 export interface Student {
   id: string;
-  email: string;
+  userId?: string;
+  email?: string;
   name: string;
   phone?: string;
   college?: string;

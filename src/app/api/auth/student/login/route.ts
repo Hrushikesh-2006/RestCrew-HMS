@@ -7,20 +7,27 @@ import { verifyPassword } from '@/lib/password';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const email = body?.email?.trim().toLowerCase();
+    const identifier = (body?.userId || body?.identifier || body?.email)?.trim();
     const password = body?.password?.trim();
 
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password are required.' }, { status: 400 });
+    if (!identifier || !password) {
+      return NextResponse.json({ error: 'Student ID and password are required.' }, { status: 400 });
     }
 
-    const student = await db.student.findUnique({
-      where: { email },
+    // Find student by either User ID or Email
+    const student = await db.student.findFirst({
+      where: {
+        OR: [
+          { userId: identifier },
+          { userId: identifier.toLowerCase() },
+          { email: identifier.toLowerCase() },
+        ],
+      },
       include: { owner: true, room: true },
     });
 
     if (!student || !verifyPassword(password, student.password)) {
-      return NextResponse.json({ error: 'Invalid student email or password.' }, { status: 401 });
+      return NextResponse.json({ error: 'Invalid Student ID or password.' }, { status: 401 });
     }
 
     return NextResponse.json({ student: mapStudentAuth(student) });

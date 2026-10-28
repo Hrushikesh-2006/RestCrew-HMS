@@ -1,7 +1,8 @@
 export interface ApiStudent {
   id: string;
+  userId?: string | null;
   name: string;
-  email: string;
+  email?: string | null;
   phone: string | null;
   college: string | null;
 }

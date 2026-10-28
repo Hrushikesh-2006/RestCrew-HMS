@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/lib/auth-store';
+import Image from 'next/image';
 import { 
   LayoutDashboard, UtensilsCrossed, AlertTriangle, DollarSign,
-  LogOut, Building2, Menu, X, Bell
+  LogOut, Menu, X, Bell
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePathname, useRouter } from 'next/navigation';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 interface NavItem {
   label: string;
@@ -43,24 +45,27 @@ export function StudentSidebar() {
 
   return (
     <>
-      {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 glass-dark z-50 flex items-center justify-between px-4">
+      {/* Mobile Top Header */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-card border-b border-border z-40 flex items-center justify-between px-3 sm:px-4 shadow-xs">
         <button
           onClick={() => setIsOpen(true)}
-          className="p-2 rounded-xl hover:bg-orange-500/10 transition-colors"
+          className="p-2 -ml-1 rounded-xl text-foreground hover:bg-muted transition-colors"
+          aria-label="Open Navigation Menu"
         >
           <Menu className="w-5 h-5 text-foreground" />
         </button>
+
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
-            <Building2 className="w-4 h-4 text-white" />
-          </div>
+          <Image src="/logo.svg" alt="RestCrew" width={28} height={28} className="rounded-md" />
           <span className="font-bold gradient-text-alt text-sm">RestCrew</span>
         </div>
-        <div className="w-9" />
-      </div>
 
-      {/* Mobile Overlay */}
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+        </div>
+      </header>
+
+      {/* Mobile Backdrop Overlay - Clean solid, no blur */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -68,55 +73,51 @@ export function StudentSidebar() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsOpen(false)}
-            className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+            className="lg:hidden fixed inset-0 bg-black/70 z-50 transition-opacity"
+            aria-hidden="true"
           />
         )}
       </AnimatePresence>
 
-      {/* Sidebar */}
-      <motion.aside
-        initial={false}
+      {/* Sidebar - Solid surface, no glassmorphism */}
+      <aside
         className={cn(
-          "fixed left-0 top-0 h-screen w-60 lg:w-64 glass-dark flex flex-col z-50",
-          "transition-transform duration-300",
-          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          "fixed left-0 top-0 h-screen w-64 bg-card border-r border-border flex flex-col z-50",
+          "transition-transform duration-300 ease-in-out",
+          isOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full lg:translate-x-0"
         )}
       >
         {/* Logo Section */}
-        <div className="p-4 border-b border-white/5">
+        <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <motion.div
-                whileHover={{ scale: 1.1, rotate: 5 }}
-                className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 flex items-center justify-center shadow-lg shadow-orange-500/20"
-              >
-                <Building2 className="w-5 h-5 text-white" />
-              </motion.div>
+              <Image src="/logo.svg" alt="RestCrew" width={36} height={36} className="rounded-xl" />
               <div>
                 <h1 className="text-base font-bold gradient-text-alt">RestCrew</h1>
-                <p className="text-[10px] text-muted-foreground">Student Portal</p>
+                <p className="text-[11px] text-muted-foreground font-medium">Student Portal</p>
               </div>
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="lg:hidden p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+              className="lg:hidden p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              aria-label="Close sidebar"
             >
-              <X className="w-5 h-5 text-muted-foreground" />
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
         {/* User Info */}
         {student && (
-          <div className="px-3 py-3 border-b border-white/5">
-            <div className="glass rounded-xl p-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-white text-xs font-bold">
-                  {student.name.charAt(0)}
+          <div className="p-3 border-b border-border">
+            <div className="bg-muted/50 rounded-xl p-2.5 border border-border">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                  {student.name ? student.name.charAt(0).toUpperCase() : 'S'}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-foreground truncate">{student.name}</p>
-                  <p className="text-[10px] text-muted-foreground truncate">
+                  <p className="text-xs font-semibold text-foreground truncate">{student.name}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">
                     {student.roomNumber ? `Room ${student.roomNumber}` : 'No Room Assigned'}
                   </p>
                 </div>
@@ -127,61 +128,56 @@ export function StudentSidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {studentNavItems.map((item, index) => {
+          {studentNavItems.map((item) => {
             const isActive = pathname === item.href;
             return (
-              <motion.button
+              <button
                 key={item.href}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
                 onClick={() => handleNavClick(item.href)}
                 className={cn(
-                  'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 group',
-                  'hover:bg-white/5',
-                  isActive && 'bg-gradient-to-r from-orange-500/20 to-transparent border-l-2 border-orange-500'
+                  'w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-colors duration-150 group',
+                  isActive 
+                    ? 'bg-primary/10 text-primary font-semibold border border-primary/20' 
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
                 )}
               >
                 <div className={cn(
-                  "w-8 h-8 rounded-lg flex items-center justify-center transition-all",
+                  "w-7 h-7 rounded-lg flex items-center justify-center transition-all shrink-0",
                   `bg-gradient-to-br ${item.gradient}`,
-                  isActive ? "shadow-lg" : "opacity-60 group-hover:opacity-100"
+                  isActive ? "shadow-sm opacity-100" : "opacity-75 group-hover:opacity-100"
                 )}>
-                  <item.icon className="w-4 h-4 text-white" />
+                  <item.icon className="w-3.5 h-3.5 text-white" />
                 </div>
-                <span className={cn(
-                  "text-sm font-medium transition-colors",
-                  isActive ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
-                )}>
+                <span className="text-sm truncate">
                   {item.label}
                 </span>
-              </motion.button>
+              </button>
             );
           })}
         </nav>
 
         {/* Bottom Section */}
-        <div className="p-3 border-t border-white/5">
+        <div className="p-3 border-t border-border">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-400 hover:bg-red-500/10 transition-all duration-200"
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-red-500 hover:text-red-400 hover:bg-red-500/10 transition-colors text-sm font-medium"
           >
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center">
-              <LogOut className="w-4 h-4 text-white" />
+            <div className="w-7 h-7 rounded-lg bg-red-600/20 text-red-500 flex items-center justify-center shrink-0">
+              <LogOut className="w-3.5 h-3.5" />
             </div>
-            <span className="text-sm font-medium">Logout</span>
+            <span>Logout</span>
           </button>
         </div>
-      </motion.aside>
+      </aside>
     </>
   );
 }
 
 export function StudentLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
       <StudentSidebar />
-      <main className="lg:ml-60 lg:ml-64 pt-14 lg:pt-0 p-4 lg:p-6 page-transition min-h-screen">
+      <main className="lg:ml-64 pt-14 lg:pt-0 p-3 sm:p-5 lg:p-8 min-h-screen max-w-full overflow-x-hidden flex-1 transition-all">
         {children}
       </main>
     </div>

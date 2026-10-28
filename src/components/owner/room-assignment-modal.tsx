@@ -30,7 +30,8 @@ import { cn } from '@/lib/utils';
 interface Student {
   id: string;
   name: string;
-  email: string;
+  userId?: string | null;
+  email?: string | null;
 }
 
 interface RoomAssignmentModalProps {
@@ -59,7 +60,8 @@ export function RoomAssignmentModal({
 
   const filteredStudents = students.filter(student => 
     student.name.toLowerCase().includes(search.toLowerCase()) ||
-    student.email.toLowerCase().includes(search.toLowerCase())
+    (student.userId && student.userId.toLowerCase().includes(search.toLowerCase())) ||
+    (student.email && student.email.toLowerCase().includes(search.toLowerCase()))
   );
 
   const availableSlots = capacity - currentOccupancy;
@@ -105,15 +107,15 @@ export function RoomAssignmentModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg w-[95vw] max-h-[80vh]">
+      <DialogContent className="bg-card border border-border shadow-xl max-w-lg w-[calc(100%-2rem)] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Assign Students to Room {roomNumber}</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-base sm:text-lg">Assign Students to Room {roomNumber}</DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm">
             {currentOccupancy}/{capacity} occupied. {availableSlots} slots available.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-3">
           <div className="space-y-2">
             <Popover>
               <PopoverTrigger asChild className="w-full">
@@ -121,18 +123,20 @@ export function RoomAssignmentModal({
                   variant="outline" 
                   size="sm" 
                   className={cn(
-                    'w-full justify-between font-normal h-10',
+                    'w-full justify-between font-normal h-10 text-xs sm:text-sm',
                     selectedStudents.length > 0 && 'bg-teal-500/20 border-teal-500/30 text-teal-400'
                   )}
                 >
-                  {selectedStudents.length > 0 
-                    ? `${selectedStudents.length} student${selectedStudents.length > 1 ? 's' : ''} selected`
-                    : 'Select students...'
-                  }
+                  <span className="truncate">
+                    {selectedStudents.length > 0 
+                      ? `${selectedStudents.length} student${selectedStudents.length > 1 ? 's' : ''} selected`
+                      : 'Select students...'
+                    }
+                  </span>
                   <ChevronDownIcon className="w-4 h-4 ml-2 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-full p-0 max-h-[300px]">
+              <PopoverContent className="w-[calc(100vw-4rem)] max-w-md p-0 max-h-[300px]">
                 <Command>
                   <CommandInput 
                     placeholder="Search students..."
@@ -159,9 +163,9 @@ export function RoomAssignmentModal({
                               selectedStudents.includes(student.id) ? 'opacity-100' : 'opacity-0'
                             )} />
                           </div>
-                          <div>
-                            <div>{student.name}</div>
-                            <div className="text-xs text-muted-foreground">{student.email}</div>
+                          <div className="truncate">
+                            <div className="font-medium text-xs sm:text-sm truncate">{student.name}</div>
+                            <div className="text-[11px] text-muted-foreground truncate">{student.userId ? `User ID: ${student.userId}` : student.email}</div>
                           </div>
                         </CommandItem>
                       ))}
@@ -173,19 +177,20 @@ export function RoomAssignmentModal({
           </div>
 
           {selectedStudents.length > availableSlots && (
-            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs sm:text-sm text-red-400">
               Cannot assign more than {availableSlots} students
             </div>
           )}
         </div>
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">
             Cancel
           </Button>
           <Button 
             onClick={handleSubmit}
             disabled={loading || selectedStudents.length === 0 || selectedStudents.length > availableSlots}
+            className="w-full sm:w-auto"
           >
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
             Assign {selectedStudents.length} Student{selectedStudents.length !== 1 ? 's' : ''}

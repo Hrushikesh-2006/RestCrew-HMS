@@ -34,7 +34,8 @@ model Owner {
 // Student/Hosteler
 model Student {
   id             String   @id @default(cuid())
-  email          String   @unique
+  userId         String?  @unique
+  email          String?  @unique
   password       String
   name           String
   phone          String?

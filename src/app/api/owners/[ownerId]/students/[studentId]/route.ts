@@ -20,12 +20,22 @@ export async function PATCH(request: Request, context: RouteContext) {
       return NextResponse.json({ error: 'Student not found for this hostel.' }, { status: 404 });
     }
 
-    const nextEmail = body?.email?.trim()?.toLowerCase();
+    const nextEmail = body?.email?.trim()?.toLowerCase() || null;
+    const nextUserId = body?.userId?.trim() || null;
 
     if (nextEmail && nextEmail !== existingStudent.email) {
       const duplicate = await db.student.findUnique({ where: { email: nextEmail } });
       if (duplicate) {
         return NextResponse.json({ error: 'A student with this email already exists.' }, { status: 409 });
+      }
+    }
+
+    if (nextUserId && nextUserId !== existingStudent.userId) {
+      const duplicateId = await db.student.findFirst({
+        where: { OR: [{ userId: nextUserId }, { userId: nextUserId.toLowerCase() }] },
+      });
+      if (duplicateId) {
+        return NextResponse.json({ error: `User ID "${nextUserId}" is already taken by another student.` }, { status: 409 });
       }
     }
 
@@ -51,7 +61,8 @@ export async function PATCH(request: Request, context: RouteContext) {
       where: { id: studentId },
       data: {
         name: body?.name?.trim() || existingStudent.name,
-        email: nextEmail || existingStudent.email,
+        userId: nextUserId ?? existingStudent.userId,
+        email: nextEmail ?? existingStudent.email,
         password: body?.password?.trim() ? hashPassword(body.password.trim()) : existingStudent.password,
         phone: body?.phone?.trim() || null,
         college: body?.college?.trim() || null,
@@ -65,7 +76,8 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({
       student: {
         id: student.id,
-        email: student.email,
+        userId: student.userId ?? '',
+        email: student.email ?? '',
         password: '',
         name: student.name,
         phone: student.phone ?? '',

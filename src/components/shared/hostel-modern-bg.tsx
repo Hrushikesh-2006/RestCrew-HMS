@@ -112,7 +112,7 @@ export function HostelModernBackground() {
               zIndex: 10 + index,
             }}
           >
-            <div className="hostel-block-face hostel-block-front backdrop-blur-sm border-white/10">
+            <div className="hostel-block-face hostel-block-front border-white/10">
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent" />
               <div className="hostel-window-grid opacity-80" />
             </div>

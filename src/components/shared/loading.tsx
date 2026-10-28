@@ -27,7 +27,7 @@ export function LoadingSpinner({ size = 'md', className }: LoadingSpinnerProps) 
 
 export function LoadingOverlay({ message = 'Loading...' }: { message?: string }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95">
       <div className="flex flex-col items-center gap-4">
         <LoadingSpinner size="lg" />
         <p className="text-muted-foreground">{message}</p>
@@ -38,21 +38,21 @@ export function LoadingOverlay({ message = 'Loading...' }: { message?: string })
 
 export function LoadingCard() {
   return (
-    <div className="glass rounded-2xl p-6 animate-pulse">
-      <div className="h-4 bg-slate-700 rounded w-1/3 mb-4" />
-      <div className="h-8 bg-slate-700 rounded w-2/3 mb-2" />
-      <div className="h-3 bg-slate-700 rounded w-1/2" />
+    <div className="bg-card border border-border rounded-2xl p-6 shadow-xs animate-pulse">
+      <div className="h-4 bg-muted rounded w-1/3 mb-4" />
+      <div className="h-8 bg-muted rounded w-2/3 mb-2" />
+      <div className="h-3 bg-muted rounded w-1/2" />
     </div>
   );
 }
 
 export function LoadingTable({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="glass rounded-xl overflow-hidden">
+    <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xs">
       <div className="p-4 border-b border-border">
         <div className="flex gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-4 bg-slate-700 rounded flex-1 animate-pulse" />
+            <div key={i} className="h-4 bg-muted rounded flex-1 animate-pulse" />
           ))}
         </div>
       </div>
@@ -60,7 +60,7 @@ export function LoadingTable({ rows = 5 }: { rows?: number }) {
         <div key={i} className="p-4 border-b border-border last:border-0">
           <div className="flex gap-4">
             {Array.from({ length: 4 }).map((_, j) => (
-              <div key={j} className="h-4 bg-slate-700 rounded flex-1 animate-pulse" />
+              <div key={j} className="h-4 bg-muted rounded flex-1 animate-pulse" />
             ))}
           </div>
         </div>

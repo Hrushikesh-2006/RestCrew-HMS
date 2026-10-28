@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { Users, Plus, Edit2, Trash2, LogOut, Search, Phone, Mail, User, Download, Link2, ShieldCheck } from 'lucide-react';
+import { Users, Plus, Edit2, Trash2, LogOut, Search, Phone, User, Download, Link2, ShieldCheck, Copy, KeyRound, CheckCheck, IdCard } from 'lucide-react';
 
 import { useAuthStore } from '@/lib/auth-store';
 import { requestJson } from '@/lib/api-client';
@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 
 type OwnerStudent = {
   id: string;
+  userId: string;
   email: string;
   password: string;
   name: string;
@@ -41,9 +42,15 @@ type HostelRoom = {
   studentCount: number;
 };
 
+type CreatedCredentials = {
+  name: string;
+  userId: string;
+  password: string;
+};
+
 const emptyForm = {
   name: '',
-  email: '',
+  userId: '',
   password: '',
   phone: '',
   college: '',
@@ -66,9 +73,12 @@ export default function OwnerStudentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [form, setForm] = useState(emptyForm);
 
+  // Credentials popup after creating a student
+  const [createdCreds, setCreatedCreds] = useState<CreatedCredentials | null>(null);
+  const [copiedField, setCopiedField] = useState<'userId' | 'password' | null>(null);
+
   useEffect(() => {
     if (!hasHydrated) return;
-
     if (!isAuthenticated || userType !== 'owner') {
       router.push('/owner/login');
     }
@@ -76,49 +86,37 @@ export default function OwnerStudentsPage() {
 
   useEffect(() => {
     if (!owner?.id) return;
-
     const loadStudents = async () => {
       setIsLoading(true);
       try {
         const response = await requestJson<{ students: OwnerStudent[] }>(`/api/owners/${owner.id}/students`);
         setStudents(response.students);
       } catch (error) {
-        toast({
-          title: 'Load Failed',
-          description: error instanceof Error ? error.message : 'Unable to load students.',
-          variant: 'destructive',
-        });
+        toast({ title: 'Load Failed', description: error instanceof Error ? error.message : 'Unable to load students.', variant: 'destructive' });
       } finally {
         setIsLoading(false);
       }
     };
-
     loadStudents();
   }, [owner?.id, toast]);
 
   useEffect(() => {
     if (!owner?.id) return;
-
     const loadRooms = async () => {
       try {
         const response = await requestJson<{ rooms: HostelRoom[] }>(`/api/owner/${owner.id}/rooms`);
         setRooms(response.rooms);
       } catch (error) {
-        toast({
-          title: 'Rooms Unavailable',
-          description: error instanceof Error ? error.message : 'Unable to load hostel rooms.',
-          variant: 'destructive',
-        });
+        toast({ title: 'Rooms Unavailable', description: error instanceof Error ? error.message : 'Unable to load hostel rooms.', variant: 'destructive' });
       }
     };
-
     loadRooms();
   }, [owner?.id, toast]);
 
   const filteredStudents = useMemo(
     () =>
       students.filter((student) =>
-        [student.name, student.email, student.college]
+        [student.name, student.userId, student.college]
           .join(' ')
           .toLowerCase()
           .includes(searchQuery.toLowerCase())
@@ -137,7 +135,7 @@ export default function OwnerStudentsPage() {
     setEditingStudent(student);
     setForm({
       name: student.name,
-      email: student.email,
+      userId: student.userId ?? '',
       password: '',
       phone: student.phone,
       college: student.college,
@@ -148,46 +146,25 @@ export default function OwnerStudentsPage() {
     setIsDialogOpen(true);
   };
 
-
   const handleDelete = async (student: OwnerStudent) => {
     try {
-      await requestJson(`/api/owners/${owner.id}/students/${student.id}`, {
-        method: 'DELETE',
-      });
+      await requestJson(`/api/owners/${owner.id}/students/${student.id}`, { method: 'DELETE' });
       setStudents((current) => current.filter((item) => item.id !== student.id));
-      toast({
-        title: 'Student Removed',
-        description: `${student.name} has been removed from ${owner.hostelName}.`,
-      });
+      toast({ title: 'Student Removed', description: `${student.name} has been removed from ${owner.hostelName}.` });
     } catch (error) {
-      toast({
-        title: 'Delete Failed',
-        description: error instanceof Error ? error.message : 'Unable to remove student.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Delete Failed', description: error instanceof Error ? error.message : 'Unable to remove student.', variant: 'destructive' });
     }
   };
 
   const handleNotifyLeaving = async (student: OwnerStudent) => {
     if (!confirm(`Report ${student.name} as leaving the hostel? This creates a notification for owner review.`)) return;
-
     try {
-      await requestJson(`/api/owner/${owner.id}/students/${student.id}/leaving-notify`, {
-        method: 'POST',
-      });
-      toast({
-        title: 'Leaving Reported',
-        description: `${student.name} leaving notification sent to owner.`,
-      });
+      await requestJson(`/api/owner/${owner.id}/students/${student.id}/leaving-notify`, { method: 'POST' });
+      toast({ title: 'Leaving Reported', description: `${student.name} leaving notification sent to owner.` });
     } catch (error) {
-      toast({
-        title: 'Notify Failed',
-        description: error instanceof Error ? error.message : 'Unable to create notification.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Notify Failed', description: error instanceof Error ? error.message : 'Unable to create notification.', variant: 'destructive' });
     }
   };
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,32 +178,36 @@ export default function OwnerStudentsPage() {
             method: 'PATCH',
             body: JSON.stringify({
               ...form,
+              userId: form.userId.trim() || undefined,
               roomId: form.roomId === 'unassigned' ? null : form.roomId,
             }),
           }
         );
-
         setStudents((current) =>
           current.map((student) => (student.id === editingStudent.id ? response.student : student))
         );
-        toast({
-          title: 'Student Updated',
-          description: `${response.student.name} remains linked to ${owner.hostelName}.`,
-        });
+        toast({ title: 'Student Updated', description: `${response.student.name} profile updated.` });
       } else {
+        const submittedPassword = form.password;
         const response = await requestJson<{ student: OwnerStudent }>(`/api/owners/${owner.id}/students`, {
           method: 'POST',
           body: JSON.stringify({
             ...form,
+            userId: form.userId.trim() || undefined, // let server auto-generate if blank
             roomId: form.roomId === 'unassigned' ? null : form.roomId,
           }),
         });
 
         setStudents((current) => [response.student, ...current]);
-        toast({
-          title: 'Student Added',
-          description: `${response.student.name} can now sign in with these credentials.`,
+
+        // Show credentials popup
+        setCreatedCreds({
+          name: response.student.name,
+          userId: response.student.userId || form.userId,
+          password: submittedPassword,
         });
+
+        toast({ title: 'Student Added ✓', description: `${response.student.name} can now log in with their credentials.` });
       }
 
       resetForm();
@@ -242,21 +223,26 @@ export default function OwnerStudentsPage() {
     }
   };
 
+  const copyToClipboard = async (text: string, field: 'userId' | 'password') => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      toast({ title: 'Copy failed', description: 'Please copy manually.', variant: 'destructive' });
+    }
+  };
+
   const exportData = () => {
     if (students.length === 0) {
-      toast({
-        title: 'No Data',
-        description: 'No students to export.',
-        variant: 'destructive',
-      });
+      toast({ title: 'No Data', description: 'No students to export.', variant: 'destructive' });
       return;
     }
-
     const csvContent = [
-      ['Name', 'Email', 'Phone', 'College', 'Parent Contact', 'Address', 'Room Number'],
+      ['Name', 'User ID', 'Phone', 'College', 'Parent Contact', 'Address', 'Room Number'],
       ...students.map((student) => [
         student.name,
-        student.email,
+        student.userId,
         student.phone,
         student.college,
         student.parentContact,
@@ -274,11 +260,7 @@ export default function OwnerStudentsPage() {
     link.download = `${owner.hostelName.replace(/\s+/g, '-').toLowerCase()}-students.csv`;
     link.click();
     URL.revokeObjectURL(url);
-
-    toast({
-      title: 'Export Complete',
-      description: 'Database-backed student records were exported to CSV.',
-    });
+    toast({ title: 'Export Complete', description: 'Student records exported to CSV.' });
   };
 
   return (
@@ -289,7 +271,7 @@ export default function OwnerStudentsPage() {
           <div>
             <h1 className="gradient-text text-3xl font-bold">Student Records</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Add students once and let them log in with the same hostel-linked details.
+              Add students and share their User ID + password to let them log in to the student portal.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -312,24 +294,9 @@ export default function OwnerStudentsPage() {
 
         <div className="grid gap-4 md:grid-cols-3">
           {[
-            {
-              label: 'Total Students',
-              value: students.length,
-              icon: Users,
-              tint: 'from-teal-500/25 to-cyan-500/10',
-            },
-            {
-              label: 'Portal Ready',
-              value: students.length,
-              icon: Link2,
-              tint: 'from-amber-500/25 to-orange-500/10',
-            },
-            {
-              label: 'Hostel Protected',
-              value: owner.hostelName,
-              icon: ShieldCheck,
-              tint: 'from-sky-500/25 to-blue-500/10',
-            },
+            { label: 'Total Students', value: students.length, icon: Users, tint: 'from-teal-500/25 to-cyan-500/10' },
+            { label: 'Portal Ready', value: students.length, icon: Link2, tint: 'from-amber-500/25 to-orange-500/10' },
+            { label: 'Hostel Protected', value: owner.hostelName, icon: ShieldCheck, tint: 'from-sky-500/25 to-blue-500/10' },
           ].map((item) => (
             <Card key={item.label} className="glass card-3d-flat overflow-hidden">
               <CardContent className="relative p-5">
@@ -356,12 +323,12 @@ export default function OwnerStudentsPage() {
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by name, email, or college..."
+                  placeholder="Search by name, User ID, or college..."
                   className="input-dark pl-10"
                 />
               </div>
               <div className="rounded-2xl border border-teal-500/20 bg-teal-500/5 px-4 py-3 text-xs text-muted-foreground">
-                Students log in with the exact email and password saved here.
+                Students log in with their <strong className="text-teal-300">User ID</strong> + password.
               </div>
             </div>
           </CardContent>
@@ -381,7 +348,7 @@ export default function OwnerStudentsPage() {
               </div>
               <h2 className="text-2xl font-bold">No Students Yet</h2>
               <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
-                Add your first student from this screen. That instantly creates a hostel-linked account the student can use in the student portal.
+                Add your first student — a unique User ID and password will be created that they can use to log into the student portal.
               </p>
             </CardContent>
           </Card>
@@ -408,15 +375,15 @@ export default function OwnerStudentsPage() {
                             <p className="truncate text-sm text-muted-foreground">{student.college || 'Hostel student'}</p>
                           </div>
                         </div>
-                        <Badge variant="outline" className="border-teal-500/30 text-teal-300">
+                        <Badge variant="outline" className="border-teal-500/30 text-teal-300 shrink-0">
                           Linked
                         </Badge>
                       </div>
 
                       <div className="space-y-2 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">
-                          <Mail className="h-4 w-4 shrink-0" />
-                          <span className="truncate">{student.email}</span>
+                          <IdCard className="h-4 w-4 shrink-0 text-teal-400" />
+                          <span className="truncate font-mono text-xs text-foreground/80">{student.userId || '—'}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Phone className="h-4 w-4 shrink-0" />
@@ -433,10 +400,9 @@ export default function OwnerStudentsPage() {
                         </div>
                       </div>
 
-                      <div className="mt-4 rounded-2xl border border-white/10 bg-black/10 p-3 text-xs leading-5 text-muted-foreground">
-                        Login route: {student.email} is mapped to <span className="text-teal-300">{owner.hostelName}</span>.
+                      <div className="mt-4 rounded-2xl border border-teal-500/20 bg-teal-500/5 p-2.5 text-xs leading-5 text-muted-foreground">
+                        Login ID: <span className="font-mono font-semibold text-teal-300">{student.userId}</span> → <span className="text-teal-300">{owner.hostelName}</span>
                       </div>
-
 
                       <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-4">
                         <Button size="sm" variant="ghost" onClick={() => handleEdit(student)} className="text-teal-300 hover:bg-teal-500/10 hover:text-teal-200">
@@ -447,12 +413,11 @@ export default function OwnerStudentsPage() {
                           <Trash2 className="mr-1 h-4 w-4" />
                           Remove
                         </Button>
-<Button size="sm" variant="destructive" onClick={() => handleNotifyLeaving(student)} className="ml-auto text-orange-300 hover:bg-orange-500/10 hover:text-orange-200 text-xs px-3">
+                        <Button size="sm" variant="destructive" onClick={() => handleNotifyLeaving(student)} className="ml-auto text-orange-300 hover:bg-orange-500/10 hover:text-orange-200 text-xs px-3">
                           <LogOut className="mr-1 h-4 w-4" />
-                          Report Leaving
+                          Leaving
                         </Button>
                       </div>
-
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -466,6 +431,7 @@ export default function OwnerStudentsPage() {
         )}
       </motion.div>
 
+      {/* Add / Edit Student Dialog */}
       <Dialog
         open={isDialogOpen}
         onOpenChange={(open) => {
@@ -493,29 +459,40 @@ export default function OwnerStudentsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm((current) => ({ ...current, email: e.target.value }))}
-                  placeholder="alice@example.com"
-                  className="input-dark"
-                  required
-                />
+                <Label>
+                  Student User ID
+                  <span className="ml-1 text-xs text-muted-foreground">(auto-generated if blank)</span>
+                </Label>
+                <div className="relative">
+                  <IdCard className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={form.userId}
+                    onChange={(e) => setForm((current) => ({ ...current, userId: e.target.value }))}
+                    placeholder="e.g. alice101 or STU001"
+                    className="input-dark pl-10 font-mono"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                  />
+                </div>
               </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Password {editingStudent ? '(Leave blank to keep current)' : ''}</Label>
-                <Input
-                  type="password"
-                  value={form.password}
-                  onChange={(e) => setForm((current) => ({ ...current, password: e.target.value }))}
-                  placeholder={editingStudent ? 'Keep existing password' : 'Create student password'}
-                  className="input-dark"
-                  required={!editingStudent}
-                />
+                <Label>
+                  Password {editingStudent ? <span className="text-xs text-muted-foreground">(leave blank to keep)</span> : ''}
+                </Label>
+                <div className="relative">
+                  <KeyRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    value={form.password}
+                    onChange={(e) => setForm((current) => ({ ...current, password: e.target.value }))}
+                    placeholder={editingStudent ? 'Keep existing password' : 'Set a password for student'}
+                    className="input-dark pl-10 font-mono"
+                    required={!editingStudent}
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Phone Number</Label>
@@ -580,7 +557,9 @@ export default function OwnerStudentsPage() {
             </div>
 
             <div className="rounded-2xl border border-teal-500/20 bg-teal-500/5 px-4 py-3 text-xs leading-5 text-muted-foreground">
-              These credentials become the student&apos;s hostel login. Once saved, the student can enter from the student portal using the same email and password.
+              {editingStudent
+                ? "Update the student's details. Password only changes if you enter a new one."
+                : 'The Student User ID and password you set here become their hostel login credentials. Share these with the student after saving.'}
             </div>
 
             <div className="flex gap-3 pt-2">
@@ -598,6 +577,70 @@ export default function OwnerStudentsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Credentials Display Dialog — shown after creating a new student */}
+      <Dialog open={!!createdCreds} onOpenChange={(open) => { if (!open) setCreatedCreds(null); }}>
+        <DialogContent className="glass max-w-md border-teal-500/30">
+          <DialogHeader>
+            <DialogTitle className="gradient-text text-xl flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-teal-400" />
+              Student Login Credentials
+            </DialogTitle>
+          </DialogHeader>
+
+          {createdCreds && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Share these credentials with <strong className="text-foreground">{createdCreds.name}</strong> so they can log into the student portal.
+              </p>
+
+              <div className="rounded-2xl border border-teal-500/30 bg-teal-500/5 divide-y divide-teal-500/20 overflow-hidden">
+                {/* User ID */}
+                <div className="flex items-center justify-between p-4 gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground mb-0.5">Student User ID</p>
+                    <p className="font-mono text-lg font-bold text-teal-300 truncate">{createdCreds.userId}</p>
+                  </div>
+                  <button
+                    onClick={() => copyToClipboard(createdCreds.userId, 'userId')}
+                    className="shrink-0 p-2 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 transition-colors"
+                    aria-label="Copy User ID"
+                  >
+                    {copiedField === 'userId' ? <CheckCheck className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </button>
+                </div>
+
+                {/* Password */}
+                <div className="flex items-center justify-between p-4 gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground mb-0.5">Password</p>
+                    <p className="font-mono text-lg font-bold text-cyan-300 truncate">{createdCreds.password}</p>
+                  </div>
+                  <button
+                    onClick={() => copyToClipboard(createdCreds.password, 'password')}
+                    className="shrink-0 p-2 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 transition-colors"
+                    aria-label="Copy Password"
+                  >
+                    {copiedField === 'password' ? <CheckCheck className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300 leading-5">
+                ⚠️ Save these credentials now. The password won&apos;t be shown again. The student visits the <strong>Student Portal</strong> on the homepage to log in.
+              </div>
+
+              <Button
+                onClick={() => setCreatedCreds(null)}
+                className="w-full bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-600 hover:to-cyan-600"
+              >
+                Done — Credentials Saved
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
     </OwnerLayout>
     </AuthGuard>
   );

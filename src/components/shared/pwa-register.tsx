@@ -8,15 +8,10 @@ export function PwaRegister() {
       return;
     }
 
-    // Skip SW in development to avoid Turbopack cache issues
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[PWA] Service worker disabled in development');
-      return;
-    }
-
-    navigator.serviceWorker.register('/sw.js').catch((err) => {
+    navigator.serviceWorker.register('/sw.js').then((reg) => {
+      console.log('[PWA] Service worker registered with scope:', reg.scope);
+    }).catch((err) => {
       console.warn('[PWA] Service worker registration failed:', err);
-      // Installability should not block the app if the service worker fails.
     });
   }, []);
 

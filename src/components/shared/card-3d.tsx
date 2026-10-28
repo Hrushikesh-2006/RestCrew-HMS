@@ -13,21 +13,13 @@ export function Card3D({ children, className, glowColor = 'teal', hover = true }
   return (
     <div
       className={cn(
-        'glass rounded-2xl p-6 relative overflow-hidden',
+        'bg-card text-card-foreground border border-border shadow-xs rounded-2xl p-6 relative overflow-hidden',
         hover && 'card-3d cursor-pointer',
-        glowColor === 'teal' && 'hover:shadow-[0_0_30px_rgba(20,184,166,0.3)]',
-        glowColor === 'amber' && 'hover:shadow-[0_0_30px_rgba(245,158,11,0.3)]',
+        glowColor === 'teal' && 'hover:border-teal-500/50 hover:shadow-[0_4px_20px_rgba(20,184,166,0.15)]',
+        glowColor === 'amber' && 'hover:border-amber-500/50 hover:shadow-[0_4px_20px_rgba(245,158,11,0.15)]',
         className
       )}
     >
-      {/* Shimmer effect overlay */}
-      <div className="absolute inset-0 shimmer pointer-events-none" />
-
-      {/* Gradient border effect */}
-      <div className="absolute inset-0 rounded-2xl opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-teal-500/20 via-transparent to-amber-500/20" />
-      </div>
-
       {/* Content */}
       <div className="relative z-10">{children}</div>
     </div>
@@ -38,10 +30,10 @@ export function Card3DFlat({ children, className, glowColor = 'teal' }: Omit<Car
   return (
     <div
       className={cn(
-        'glass rounded-xl p-4 relative overflow-hidden cursor-pointer',
+        'bg-card text-card-foreground border border-border shadow-xs rounded-xl p-4 relative overflow-hidden cursor-pointer',
         'card-3d-flat',
-        glowColor === 'teal' && 'hover:shadow-[0_0_20px_rgba(20,184,166,0.2)]',
-        glowColor === 'amber' && 'hover:shadow-[0_0_20px_rgba(245,158,11,0.2)]',
+        glowColor === 'teal' && 'hover:border-teal-500/50 hover:shadow-[0_2px_12px_rgba(20,184,166,0.12)]',
+        glowColor === 'amber' && 'hover:border-amber-500/50 hover:shadow-[0_2px_12px_rgba(245,158,11,0.12)]',
         className
       )}
     >

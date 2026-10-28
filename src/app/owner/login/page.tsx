@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft,
-  Building2,
   Chrome,
   Eye,
   EyeOff,
@@ -199,9 +199,9 @@ export default function OwnerLoginPage() {
                 initial={{ scale: 0, rotate: -20 }}
                 animate={{ scale: 1, rotate: 0 }}
                 transition={{ type: 'spring', damping: 12, stiffness: 200 }}
-                className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-cyan-500 shadow-xl shadow-purple-500/20"
+                className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl overflow-hidden shadow-xl"
               >
-                <Building2 className="h-6 w-6 text-white" />
+                <Image src="/logo.svg" alt="RestCrew" width={56} height={56} className="w-full h-full" />
               </motion.div>
               <CardTitle className="text-xl font-bold tracking-tight mb-1">
                 <span className="gradient-text">Owner Portal</span>

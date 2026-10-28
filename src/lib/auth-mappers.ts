@@ -3,6 +3,7 @@ import type { Owner, Student, Room } from '@prisma/client';
 type StudentWithRelations = Student & {
   owner?: Owner;
   room?: Room | null;
+  userId?: string | null;
 };
 
 export function mapOwnerAuth(owner: Owner) {
@@ -19,7 +20,8 @@ export function mapOwnerAuth(owner: Owner) {
 export function mapStudentAuth(student: StudentWithRelations) {
   return {
     id: student.id,
-    email: student.email,
+    userId: student.userId ?? '',
+    email: student.email ?? '',
     name: student.name,
     phone: student.phone ?? '',
     college: student.college ?? '',

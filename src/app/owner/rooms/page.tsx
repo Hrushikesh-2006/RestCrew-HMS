@@ -307,32 +307,34 @@ export default function OwnerRoomsPage() {
               Manage your hostel rooms and track occupancy
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* View Toggle */}
-            <div className="flex items-center glass rounded-lg p-1">
+            <div className="flex items-center bg-muted/70 border border-border rounded-lg p-1">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-lg transition-all ${
-                  viewMode === 'grid' ? 'bg-teal-500/20 text-teal-400' : 'text-muted-foreground'
+                className={`p-1.5 sm:p-2 rounded-lg transition-all ${
+                  viewMode === 'grid' ? 'bg-teal-500/20 text-teal-400 font-semibold' : 'text-muted-foreground hover:text-foreground'
                 }`}
+                aria-label="Grid View"
               >
-                <Grid className="w-4 h-4 lg:w-5 lg:h-5" />
+                <Grid className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-2 rounded-lg transition-all ${
-                  viewMode === 'list' ? 'bg-teal-500/20 text-teal-400' : 'text-muted-foreground'
+                className={`p-1.5 sm:p-2 rounded-lg transition-all ${
+                  viewMode === 'list' ? 'bg-teal-500/20 text-teal-400 font-semibold' : 'text-muted-foreground hover:text-foreground'
                 }`}
+                aria-label="List View"
               >
-                <List className="w-4 h-4 lg:w-5 lg:h-5" />
+                <List className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
             
             <Button
               onClick={() => setIsDialogOpen(true)}
-              className="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700"
+              className="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 h-9 sm:h-10 text-xs sm:text-sm shadow-xs"
             >
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="w-4 h-4 mr-1.5" />
               <span className="hidden sm:inline">Add Room</span>
               <span className="sm:hidden">Add</span>
             </Button>
@@ -340,7 +342,7 @@ export default function OwnerRoomsPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
           {[
             { label: 'Total Rooms', value: rooms.length, color: 'teal' },
             { label: 'Vacant', value: rooms.filter(r => getRoomStatus(r) === 'vacant').length, color: 'green' },
@@ -349,14 +351,14 @@ export default function OwnerRoomsPage() {
           ].map((stat, index) => (
             <motion.div
               key={stat.label}
-              initial={{ opacity: 0, scale: 0.9 }}
+              initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.1 }}
+              transition={{ delay: index * 0.05 }}
             >
-              <Card className="glass">
-                <CardContent className="p-3 lg:p-4">
-                  <p className="text-xs lg:text-sm text-muted-foreground">{stat.label}</p>
-                  <p className={`text-xl lg:text-3xl font-bold mt-1 ${
+              <Card className="bg-card border border-border shadow-xs">
+                <CardContent className="p-3 sm:p-4">
+                  <p className="text-xs sm:text-sm text-muted-foreground font-medium">{stat.label}</p>
+                  <p className={`text-xl sm:text-2xl lg:text-3xl font-bold mt-1 ${
                     stat.color === 'teal' ? 'text-teal-400' :
                     stat.color === 'green' ? 'text-green-400' :
                     stat.color === 'amber' ? 'text-amber-400' :
@@ -372,7 +374,7 @@ export default function OwnerRoomsPage() {
 
         {/* Empty State */}
         {rooms.length === 0 && (
-          <Card className="glass border-teal-500/30">
+          <Card className="bg-card border border-teal-500/30 shadow-xs">
             <CardContent className="p-6 lg:p-10 text-center">
               <div className="w-16 h-16 lg:w-20 lg:h-20 rounded-2xl bg-gradient-to-br from-teal-500/20 to-amber-500/20 flex items-center justify-center mx-auto mb-4">
                 <DoorOpen className="w-8 h-8 lg:w-10 lg:h-10 text-teal-400" />
@@ -405,40 +407,39 @@ export default function OwnerRoomsPage() {
             </h2>
             
             {viewMode === 'grid' ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 lg:gap-4">
+              <div className="grid grid-cols-1 min-[460px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 lg:gap-4">
                 <AnimatePresence>
                   {floorRooms.map((room, index) => {
                     const status = getRoomStatus(room);
                     const roomStudents = roomStudentsMap[room.id] ?? room.students ?? [];
                     const amenities = room.amenities ?? [];
-                    
 
                     return (
                       <motion.div
                         key={room.id}
-                        initial={{ opacity: 0, scale: 0.8 }}
+                        initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.8 }}
-                        transition={{ delay: index * 0.05 }}
-                        whileHover={{ scale: 1.02 }}
-                        className={`relative rounded-xl lg:rounded-2xl p-3 lg:p-4 cursor-pointer transition-all room-cell ${status}`}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ delay: index * 0.03 }}
+                        whileHover={{ scale: 1.01 }}
+                        className={`relative rounded-xl lg:rounded-2xl p-3.5 lg:p-4 cursor-pointer transition-all room-cell ${status}`}
                       >
                         <div className="flex items-center justify-between mb-2 lg:mb-3">
                           <span className="text-base lg:text-lg font-bold">{room.roomNumber}</span>
-                          <Badge variant="outline" className={`text-[10px] lg:text-xs ${getStatusColor(status)}`}>
+                          <Badge variant="outline" className={`text-[10px] lg:text-xs font-semibold ${getStatusColor(status)}`}>
                             {room.capacity}-share
                           </Badge>
                         </div>
                         
                         {/* Student Management */}
-                        <div className="space-y-2 mb-3">
+                        <div className="space-y-1.5 mb-3">
                           <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase">Occupants</span>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Occupants</span>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleOpenAssignmentModal(room)}
-                              className="h-6 text-[10px] bg-white/5 border-white/10 px-2"
+                              className="h-6 text-[10px] bg-muted/80 border border-border px-2 hover:bg-muted font-medium"
                               disabled={unassignedStudents.length === 0}
                             >
                               Assign ({unassignedStudents.length})
@@ -446,13 +447,14 @@ export default function OwnerRoomsPage() {
                           </div>
                           <div className="flex flex-col gap-1">
                             {roomStudents.map(s => (
-                              <div key={s.id} className="flex items-center justify-between bg-white/5 px-2 py-1 rounded text-[10px]">
-                                <span className="truncate max-w-[80px]">{s.name}</span>
+                              <div key={s.id} className="flex items-center justify-between bg-muted/60 border border-border/60 px-2 py-1 rounded text-[10px]">
+                                <span className="truncate max-w-[140px] min-[460px]:max-w-[85px] font-medium">{s.name}</span>
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); handleRemoveStudent(room.id, s.id); }}
-                                  className="text-red-400 hover:text-red-300"
+                                  className="text-red-500 hover:text-red-400 p-0.5 rounded"
+                                  aria-label="Remove occupant"
                                 >
-                                  <X className="w-2.5 h-2.5" />
+                                  <X className="w-3 h-3" />
                                 </button>
                               </div>
                             ))}
@@ -462,61 +464,63 @@ export default function OwnerRoomsPage() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1 mb-2">
-                          <Users className="w-3 h-3 lg:w-4 lg:h-4 text-muted-foreground" />
-                          <span className="text-xs lg:text-sm text-muted-foreground">
-                            {room.studentCount}/{room.capacity}
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground font-medium">
+                            {room.studentCount}/{room.capacity} occupied
                           </span>
                         </div>
                         
                         {/* Occupancy Dots */}
-                        <div className="flex gap-1 mb-2 lg:mb-3">
+                        <div className="flex gap-1.5 mb-2.5">
                           {Array.from({ length: room.capacity }).map((_, i) => (
                             <div
                               key={i}
-                              className={`w-3 h-3 lg:w-4 lg:h-4 rounded-full ${
+                              className={`w-3.5 h-3.5 rounded-full ${
                                 i < room.studentCount 
-                                  ? status === 'full' ? 'bg-red-400' : 'bg-amber-400'
-                                  : 'bg-slate-600'
+                                  ? status === 'full' ? 'bg-red-500' : 'bg-amber-500'
+                                  : 'bg-muted-foreground/30'
                               }`}
                             />
                           ))}
                         </div>
                         
                         {/* Amenities */}
-                        <div className="flex flex-wrap gap-1 mb-2 lg:mb-3">
+                        <div className="flex flex-wrap gap-1 mb-3">
                           {amenities.slice(0, 2).map(amenity => (
                             <span
                               key={amenity}
-                              className="text-[10px] lg:text-xs px-1.5 lg:px-2 py-0.5 rounded-full bg-slate-700/50 text-muted-foreground"
+                              className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border/50"
                             >
                               {amenity}
                             </span>
                           ))}
                           {amenities.length > 2 && (
-                            <span className="text-[10px] lg:text-xs px-1.5 lg:px-2 py-0.5 rounded-full bg-slate-700/50 text-muted-foreground">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border/50">
                               +{amenities.length - 2}
                             </span>
                           )}
                         </div>
                         
                         {/* Actions */}
-                        <div className="flex gap-2 pt-2 border-t border-border/30">
+                        <div className="flex gap-2 pt-2 border-t border-border/40">
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={(e) => { e.stopPropagation(); handleEdit(room); }}
-                            className="flex-1 h-7 lg:h-8 text-teal-400 hover:text-teal-300 hover:bg-teal-500/10 p-0"
+                            className="flex-1 h-7 text-xs text-teal-500 hover:text-teal-400 hover:bg-teal-500/10 p-0 font-medium"
                           >
-                            <Edit2 className="w-3 h-3" />
+                            <Edit2 className="w-3 h-3 mr-1" />
+                            <span>Edit</span>
                           </Button>
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={(e) => { e.stopPropagation(); handleDelete(room); }}
-                            className="flex-1 h-7 lg:h-8 text-red-400 hover:text-red-300 hover:bg-red-500/10 p-0"
+                            className="flex-1 h-7 text-xs text-red-500 hover:text-red-400 hover:bg-red-500/10 p-0 font-medium"
                           >
-                            <Trash2 className="w-3 h-3" />
+                            <Trash2 className="w-3 h-3 mr-1" />
+                            <span>Delete</span>
                           </Button>
                         </div>
                       </motion.div>
@@ -525,7 +529,7 @@ export default function OwnerRoomsPage() {
                 </AnimatePresence>
               </div>
             ) : (
-              <Card className="glass overflow-hidden">
+              <Card className="bg-card border border-border shadow-xs overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[500px]">
                     <thead>
@@ -597,7 +601,7 @@ export default function OwnerRoomsPage() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
-        <DialogContent className="glass max-w-md w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-card border border-border shadow-xl max-w-md w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="gradient-text text-lg lg:text-xl">
               {editingRoom ? 'Edit Room' : 'Add New Room'}
